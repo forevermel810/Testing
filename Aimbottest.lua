@@ -17,6 +17,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
+local UIS = game:GetService("UserInputService")
 
 -- Settings
 local Settings = getgenv().Aimbot
@@ -30,7 +31,7 @@ local function visible(part)
     if not Settings.UseVisibilityCheck then return true end
     local origin = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head")
     if not origin then return false end
-    
+
     local ray = Ray.new(origin.Position, (part.Position - origin.Position))
     local hit = workspace:FindPartOnRayWithIgnoreList(ray, {LocalPlayer.Character})
     return hit and hit:IsDescendantOf(part.Parent)
@@ -69,7 +70,7 @@ local function createESP(player)
 
     local function setupCharacter(character)
         if not character then return end
-        
+
         -- Clean up old ESP
         if character:FindFirstChild("ESP_Highlight") then character.ESP_Highlight:Destroy() end
         if character:FindFirstChild("ESP_Billboard") then character.ESP_Billboard:Destroy() end
@@ -112,7 +113,7 @@ local function createESP(player)
             if not Settings.ESP or not LocalPlayer.Character then return end
             local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
             local targetRoot = character:FindFirstChild("HumanoidRootPart")
-            
+
             if root and targetRoot then
                 local distance = (root.Position - targetRoot.Position).Magnitude
                 label.Text = player.Name .. "\n[" .. math.floor(distance) .. " studs]"
@@ -149,5 +150,91 @@ RunService.RenderStepped:Connect(function(dt)
     Camera.CFrame = smooth
 end)
 
--- GUI (kept your original GUI code)
--- ... your existing GUI code here ...
+-- GUI
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+if PlayerGui:FindFirstChild("AimbotUI") then PlayerGui.AimbotUI:Destroy() end
+
+local gui = Instance.new("ScreenGui", PlayerGui)
+gui.Name = "AimbotUI"
+gui.ResetOnSpawn = false
+
+local toggle = Instance.new("TextButton", gui)
+toggle.Size = UDim2.new(0,180,0,60)
+toggle.Position = UDim2.new(1,-200,0,100)
+toggle.Text = "AIMBOT: OFF"
+toggle.Font = Enum.Font.SourceSansLight
+toggle.TextSize = 22
+toggle.BackgroundColor3 = Color3.fromRGB(35,35,35)
+toggle.TextColor3 = Color3.fromRGB(200,200,200)
+
+local corner = Instance.new("UICorner", toggle)
+corner.CornerRadius = UDim.new(0,24)
+
+toggle.MouseEnter:Connect(function() toggle.BackgroundColor3 = Color3.fromRGB(55,55,55) end)
+toggle.MouseLeave:Connect(function() toggle.BackgroundColor3 = Color3.fromRGB(35,35,35) end)
+
+toggle.MouseButton1Click:Connect(function()
+    Settings.Enabled = not Settings.Enabled
+    toggle.Text = "AIMBOT: " .. (Settings.Enabled and "ON" or "OFF")
+end)
+
+-- ESP Toggle Button
+local espToggle = Instance.new("TextButton", gui)
+espToggle.Size = UDim2.new(0,180,0,60)
+espToggle.Position = UDim2.new(1,-200,0,170)
+espToggle.Text = "ESP: OFF"
+espToggle.Font = Enum.Font.SourceSansLight
+espToggle.TextSize = 22
+espToggle.BackgroundColor3 = Color3.fromRGB(35,35,35)
+espToggle.TextColor3 = Color3.fromRGB(200,200,200)
+
+local espCorner = Instance.new("UICorner", espToggle)
+espCorner.CornerRadius = UDim.new(0,24)
+
+espToggle.MouseEnter:Connect(function() espToggle.BackgroundColor3 = Color3.fromRGB(55,55,55) end)
+espToggle.MouseLeave:Connect(function() espToggle.BackgroundColor3 = Color3.fromRGB(35,35,35) end)
+
+espToggle.MouseButton1Click:Connect(function()
+    Settings.ESP = not Settings.ESP
+    espToggle.Text = "ESP: " .. (Settings.ESP and "ON" or "OFF")
+    
+    -- Update ESP for all players
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Character then
+            local highlight = player.Character:FindFirstChild("ESP_Highlight")
+            local billboard = player.Character:FindFirstChild("ESP_Billboard")
+            
+            if highlight then highlight.Enabled = Settings.ESP end
+            if billboard then billboard.Enabled = Settings.ESP end
+        end
+    end
+end)
+
+-- Dragging
+local dragging = false
+local dragOffset = Vector2.new()
+
+local function makeDraggable(frame)
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragOffset = UIS:GetMouseLocation() - frame.AbsolutePosition
+        end
+    end)
+    
+    frame.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+end
+
+UIS.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local mousePos = UIS:GetMouseLocation()
+        toggle.Position = UDim2.new(0, mousePos.X - dragOffset.X, 0, mousePos.Y - dragOffset.Y)
+        espToggle.Position = UDim2.new(0, mousePos.X - dragOffset.X, 0, mousePos.Y - dragOffset.Y + 70)
+    end
+end)
+
+makeDraggable(toggle)
