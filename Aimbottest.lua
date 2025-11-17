@@ -6,42 +6,44 @@ getgenv().Aimbot = {
     TargetPart = "Head",
     IgnoredTeams = {},
     MaxAngle = 120,
-    LerpSpeed = 8,
+    SpeedAndSmoothness = 8,
     ESP = false
 }
 loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/Aimbottest.lua"))()
 ]]
 
--- Services
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-local UIS = game:GetService("UserInputService")
-
--- Settings
+-- SETTINGS TABLE REFERENCE
 local Settings = getgenv().Aimbot
 
--- Core Functions
+-- SERVICES
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local UIS = game:GetService("UserInputService")
+
+-- HELPER FUNCTIONS
 local function enemy(player)
     return not (player.Team == LocalPlayer.Team or table.find(Settings.IgnoredTeams, player.Team))
 end
 
 local function visible(part)
-    if not Settings.UseVisibilityCheck then return true end
-    local origin = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head")
-    if not origin then return false end
-
-    local ray = Ray.new(origin.Position, (part.Position - origin.Position))
-    local hit = workspace:FindPartOnRayWithIgnoreList(ray, {LocalPlayer.Character})
+    if not (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head")) then return false end
+    local origin = LocalPlayer.Character.Head.Position
+    local dir = part.Position - origin
+    local ray = Ray.new(origin, dir)
+    local hit = Workspace:FindPartOnRayWithIgnoreList(ray, {LocalPlayer.Character})
     return hit and hit:IsDescendantOf(part.Parent)
 end
 
 local function getTarget()
-    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not LocalPlayer.Character then return end
+    local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
 
-    local camLook, best, bestDot = Camera.CFrame.LookVector, nil, -1
+    local camLook = Camera.CFrame.LookVector
+    local best, bestDot = nil, -1
     local maxDot = math.cos(math.rad(Settings.MaxAngle))
 
     for _, plr in pairs(Players:GetPlayers()) do
@@ -64,85 +66,17 @@ local function getTarget()
     return best
 end
 
--- ESP with Distance
-local function createESP(player)
-    if player == LocalPlayer then return end
-
-    local function setupCharacter(character)
-        if not character then return end
-
-        -- Clean up old ESP
-        if character:FindFirstChild("ESP_Highlight") then character.ESP_Highlight:Destroy() end
-        if character:FindFirstChild("ESP_Billboard") then character.ESP_Billboard:Destroy() end
-
-        local humanoid, head = character:FindFirstChild("Humanoid"), character:FindFirstChild("Head")
-        if not humanoid or not head then return end
-
-        -- Create highlight
-        local highlight = Instance.new("Highlight")
-        highlight.Name = "ESP_Highlight"
-        highlight.FillColor = player.Team and player.Team.TeamColor.Color or Color3.fromRGB(255,0,0)
-        highlight.OutlineColor = Color3.fromRGB(255,255,255)
-        highlight.FillTransparency = 0.5
-        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        highlight.Adornee = character
-        highlight.Enabled = Settings.ESP
-        highlight.Parent = character
-
-        -- Create billboard with distance
-        local billboard = Instance.new("BillboardGui")
-        billboard.Name = "ESP_Billboard"
-        billboard.Size = UDim2.new(0,200,0,50)
-        billboard.StudsOffset = Vector3.new(0,3,0)
-        billboard.AlwaysOnTop = true
-        billboard.Adornee = head
-        billboard.Enabled = Settings.ESP
-        billboard.Parent = character
-
-        local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(1,0,1,0)
-        label.BackgroundTransparency = 1
-        label.TextColor3 = highlight.FillColor
-        label.TextStrokeTransparency = 0.5
-        label.Font = Enum.Font.SourceSansLight
-        label.TextSize = 14
-        label.Parent = billboard
-
-        -- Distance update function
-        local function updateDistance()
-            if not Settings.ESP or not LocalPlayer.Character then return end
-            local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            local targetRoot = character:FindFirstChild("HumanoidRootPart")
-
-            if root and targetRoot then
-                local distance = (root.Position - targetRoot.Position).Magnitude
-                label.Text = player.Name .. "\n[" .. math.floor(distance) .. " studs]"
-            end
-        end
-
-        RunService.RenderStepped:Connect(updateDistance)
-        updateDistance()
-    end
-
-    player.CharacterAdded:Connect(setupCharacter)
-    if player.Character then setupCharacter(player.Character) end
-end
-
--- Initialize ESP
-for _, player in ipairs(Players:GetPlayers()) do
-    createESP(player)
-end
-Players.PlayerAdded:Connect(createESP)
-
--- Aimbot loop
+-- CAMERA LOCK LOOP
+if getgenv().AimbotConnection then getgenv().AimbotConnection:Disconnect() end
 local smooth = Camera.CFrame
-RunService.RenderStepped:Connect(function(dt)
+
+getgenv().AimbotConnection = RunService.RenderStepped:Connect(function(dt)
     local target = getTarget()
     local current = Camera.CFrame
 
     if Settings.Enabled and target then
         local goal = CFrame.new(current.Position, target.Position)
-        smooth = current:Lerp(goal, math.clamp(Settings.LerpSpeed * dt, 0, 1))
+        smooth = current:Lerp(goal, math.clamp(Settings.SpeedAndSmoothness * dt, 0, 1))
     else
         smooth = current
     end
@@ -178,63 +112,100 @@ toggle.MouseButton1Click:Connect(function()
     toggle.Text = "AIMBOT: " .. (Settings.Enabled and "ON" or "OFF")
 end)
 
--- ESP Toggle Button
-local espToggle = Instance.new("TextButton", gui)
-espToggle.Size = UDim2.new(0,180,0,60)
-espToggle.Position = UDim2.new(1,-200,0,170)
-espToggle.Text = "ESP: OFF"
-espToggle.Font = Enum.Font.SourceSansLight
-espToggle.TextSize = 22
-espToggle.BackgroundColor3 = Color3.fromRGB(35,35,35)
-espToggle.TextColor3 = Color3.fromRGB(200,200,200)
+-- DRAGGING
+local dragging = false
+local offset = Vector2.new()
+local drag = Instance.new("Frame", toggle)
+drag.Size = UDim2.new(1,0,0,30)
+drag.BackgroundTransparency = 1
 
-local espCorner = Instance.new("UICorner", espToggle)
-espCorner.CornerRadius = UDim.new(0,24)
-
-espToggle.MouseEnter:Connect(function() espToggle.BackgroundColor3 = Color3.fromRGB(55,55,55) end)
-espToggle.MouseLeave:Connect(function() espToggle.BackgroundColor3 = Color3.fromRGB(35,35,35) end)
-
-espToggle.MouseButton1Click:Connect(function()
-    Settings.ESP = not Settings.ESP
-    espToggle.Text = "ESP: " .. (Settings.ESP and "ON" or "OFF")
-    
-    -- Update ESP for all players
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player.Character then
-            local highlight = player.Character:FindFirstChild("ESP_Highlight")
-            local billboard = player.Character:FindFirstChild("ESP_Billboard")
-            
-            if highlight then highlight.Enabled = Settings.ESP end
-            if billboard then billboard.Enabled = Settings.ESP end
-        end
+drag.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        offset = UIS:GetMouseLocation() - toggle.AbsolutePosition
     end
 end)
 
--- Dragging
-local dragging = false
-local dragOffset = Vector2.new()
-
-local function makeDraggable(frame)
-    frame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragOffset = UIS:GetMouseLocation() - frame.AbsolutePosition
-        end
-    end)
-    
-    frame.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
-    end)
-end
+drag.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
 
 UIS.InputChanged:Connect(function(input)
-    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-        local mousePos = UIS:GetMouseLocation()
-        toggle.Position = UDim2.new(0, mousePos.X - dragOffset.X, 0, mousePos.Y - dragOffset.Y)
-        espToggle.Position = UDim2.new(0, mousePos.X - dragOffset.X, 0, mousePos.Y - dragOffset.Y + 70)
+    if dragging then
+        local pos = UIS:GetMouseLocation() - offset
+        toggle.Position = UDim2.new(0,pos.X,0,pos.Y)
     end
 end)
 
-makeDraggable(toggle)
+-- ESP FUNCTIONALITY WITH DISTANCE
+local function createESP(player)
+    if player == LocalPlayer then return end
+
+    local function setupCharacter(character)
+        if not character then return end
+        -- Remove old ESP
+        if character:FindFirstChild("ESP_Highlight") then character.ESP_Highlight:Destroy() end
+        if character:FindFirstChild("ESP_Billboard") then character.ESP_Billboard:Destroy() end
+
+        local humanoid = character:FindFirstChild("Humanoid")
+        local head = character:FindFirstChild("Head")
+        if not humanoid or not head then return end
+
+        -- Highlight whole body
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "ESP_Highlight"
+        highlight.FillColor = player.Team and player.Team.TeamColor.Color or Color3.fromRGB(255,0,0)
+        highlight.OutlineColor = Color3.fromRGB(255,255,255)
+        highlight.FillTransparency = 0.5
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Adornee = character
+        highlight.Enabled = Settings.ESP
+        highlight.Parent = character
+
+        -- Billboard with name and distance
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "ESP_Billboard"
+        billboard.Size = UDim2.new(0,200,0,50)
+        billboard.StudsOffset = Vector3.new(0,3,0)
+        billboard.AlwaysOnTop = true
+        billboard.Adornee = head
+        billboard.Enabled = Settings.ESP
+        billboard.Parent = character
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1,0,1,0)
+        label.BackgroundTransparency = 1
+        label.TextColor3 = highlight.FillColor
+        label.TextStrokeTransparency = 0.5
+        label.Font = Enum.Font.SourceSansLight
+        label.TextSize = 14
+        label.Parent = billboard
+
+        -- Distance update function
+        local function updateDistance()
+            if not Settings.ESP or not LocalPlayer.Character then return end
+            local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local targetRoot = character:FindFirstChild("HumanoidRootPart")
+            
+            if root and targetRoot then
+                local distance = (root.Position - targetRoot.Position).Magnitude
+                label.Text = player.Name .. "\n[" .. math.floor(distance) .. " studs]"
+            end
+        end
+
+        RunService.RenderStepped:Connect(updateDistance)
+        updateDistance()
+    end
+
+    player.CharacterAdded:Connect(setupCharacter)
+    if player.Character then setupCharacter(player.Character) end
+end
+
+-- Initialize ESP for existing and new players
+for _, player in ipairs(Players:GetPlayers()) do
+    createESP(player)
+end
+
+Players.PlayerAdded:Connect(createESP)
