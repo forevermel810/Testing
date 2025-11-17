@@ -123,7 +123,7 @@ getgenv().AimbotConnection = RunService.RenderStepped:Connect(function(dt)
     Camera.CFrame = smooth
 end)
 
--- SIMPLE GUI
+-- SIMPLE GUI WITH FIXED DRAGGING
 local gui = Instance.new("ScreenGui", LocalPlayer.PlayerGui)
 gui.Name, gui.ResetOnSpawn = "AimbotUI", false
 
@@ -141,11 +141,37 @@ toggle.MouseButton1Click:Connect(function()
     toggle.Text = "AIMBOT: " .. (Settings.Enabled and "ON" or "OFF")
 end)
 
--- Dragging
-local dragging, offset = false, Vector2.new()
-local drag = Instance.new("Frame", toggle)
-drag.Size, drag.BackgroundTransparency = UDim2.new(1,0,0,30), 1
+-- Fixed Dragging
+local dragging = false
+local dragInput, dragStart, startPos
 
-drag.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging, offset = true, UIS:GetMouseLocation() - toggle.AbsolutePosition end end)
-drag.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
-UIS.InputChanged:Connect(function(i) if dragging then toggle.Position = UDim2.new(0, (UIS:GetMouseLocation() - offset).X, 0, (UIS:GetMouseLocation() - offset).Y) end end)
+local function updateInput(input)
+    dragInput = input
+end
+
+toggle.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = toggle.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+toggle.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        dragInput = input
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        toggle.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
