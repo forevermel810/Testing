@@ -9,7 +9,7 @@ getgenv().Aimbot = {
     LerpSpeed = 8,
     ESP = false
 }
-loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/Aimbottestmlua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/Aimbottest.lua"))()
 ]]
 
 -- Services
