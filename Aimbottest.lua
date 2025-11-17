@@ -23,9 +23,26 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local UIS = game:GetService("UserInputService")
 
--- HELPER FUNCTIONS
+-- FIXED HELPER FUNCTIONS
 local function enemy(player)
-    return not (player.Team == LocalPlayer.Team or table.find(Settings.IgnoredTeams, player.Team))
+    -- If team check is disabled, everyone is an enemy
+    if not Settings.UseTeamCheck then
+        return true
+    end
+    
+    -- Check if same team
+    if player.Team == LocalPlayer.Team then
+        return false
+    end
+    
+    -- Check ignored teams by comparing Team objects, not TeamColor
+    for _, ignoredTeam in ipairs(Settings.IgnoredTeams) do
+        if player.Team == ignoredTeam then
+            return false
+        end
+    end
+    
+    return true
 end
 
 local function visible(part)
@@ -53,7 +70,7 @@ local function getTarget()
 
             -- CRITICAL: Check if humanoid exists AND health > 0
             if hum and hum.Health > 0 and part then
-                if (not Settings.UseTeamCheck or enemy(plr)) and (not Settings.UseVisibilityCheck or visible(part)) then
+                if enemy(plr) and (not Settings.UseVisibilityCheck or visible(part)) then
                     local dir = (part.Position - hrp.Position).Unit
                     local dot = dir:Dot(camLook)
                     if dot > bestDot and dot >= maxDot then
@@ -140,7 +157,7 @@ UIS.InputChanged:Connect(function(input)
     end
 end)
 
--- FIXED ESP FUNCTIONALITY WITH DEATH/RESPAWN HANDLING
+-- FIXED ESP FUNCTIONALITY WITH PROPER TEAM HANDLING
 local function createESP(player)
     if player == LocalPlayer then return end
 
@@ -161,8 +178,8 @@ local function createESP(player)
         end
 
         -- Only create ESP if player meets conditions
-        if Settings.UseTeamCheck and not enemy(player) then
-            return -- Don't create ESP for teammates when team check is on
+        if not enemy(player) then
+            return -- Don't create ESP for teammates or ignored teams
         end
 
         -- Highlight whole body
@@ -204,7 +221,7 @@ local function createESP(player)
             end
 
             -- Re-check team conditions every frame
-            if Settings.UseTeamCheck and not enemy(player) then
+            if not enemy(player) then
                 highlight.Enabled = false
                 billboard.Enabled = false
                 return
@@ -281,10 +298,10 @@ local function updateAllESP()
             local billboard = player.Character:FindFirstChild("ESP_Billboard")
             
             if highlight then
-                highlight.Enabled = Settings.ESP
+                highlight.Enabled = Settings.ESP and enemy(player)
             end
             if billboard then
-                billboard.Enabled = Settings.ESP
+                billboard.Enabled = Settings.ESP and enemy(player)
             end
         end
     end
@@ -292,14 +309,20 @@ end
 
 -- Connect ESP toggle to settings changes
 getgenv().AimbotSettings = Settings
-debug.setmetatable(Settings, {
-    __newindex = function(t, k, v)
-        rawset(t, k, v)
-        if k == "ESP" or k == "UseTeamCheck" then
-            updateAllESP()
-            if k == "UseTeamCheck" then
-                refreshAllESP()
-            end
-        end
-    end
-})
+
+-- Helper function to properly set IgnoredTeams
+local function updateIgnoredTeams()
+    refreshAllESP()
+end
+
+-- Example of how to use IgnoredTeams properly:
+--[[
+getgenv().Aimbot.IgnoredTeams = {game:GetService("Teams")["TeamName"]}
+-- OR for multiple teams:
+getgenv().Aimbot.IgnoredTeams = {
+    game:GetService("Teams")["Team1"],
+    game:GetService("Teams")["Team2"]
+}
+]]
+
+print("Aimbot loaded! Use: getgenv().Aimbot.IgnoredTeams = {game:GetService('Teams')['TeamName']} to ignore teams")
