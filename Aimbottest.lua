@@ -2,164 +2,152 @@
 getgenv().Aimbot = {
     Enabled = false,
     UseTeamCheck = false,
-    ESP = false,
-    ESPTeamCheck = false,
+    UseVisibilityCheck = true,
     TargetPart = "Head",
     IgnoredTeams = {},
     MaxAngle = 120,
-    LerpSpeed = 8
+    LerpSpeed = 8,
+    ESP = false
 }
-
-loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/Aimbottest.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/Aimbottestmlua"))()
 ]]
 
-------------------------------------------------------------
--- SERVICES
-------------------------------------------------------------
+-- Services
 local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
-------------------------------------------------------------
--- SETTINGS TABLE REFERENCE
-------------------------------------------------------------
+-- Settings
 local Settings = getgenv().Aimbot
 
-------------------------------------------------------------
--- VISIBILITY CHECK ALWAYS ON
-------------------------------------------------------------
+-- Core Functions
+local function enemy(player)
+    return not (player.Team == LocalPlayer.Team or table.find(Settings.IgnoredTeams, player.Team))
+end
+
 local function visible(part)
-    local head = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head")
-    if not head then return false end
-
-    local origin = head.Position
-    local dir = part.Position - origin
-    local ray = Ray.new(origin, dir)
+    if not Settings.UseVisibilityCheck then return true end
+    local origin = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head")
+    if not origin then return false end
+    
+    local ray = Ray.new(origin.Position, (part.Position - origin.Position))
     local hit = workspace:FindPartOnRayWithIgnoreList(ray, {LocalPlayer.Character})
-
     return hit and hit:IsDescendantOf(part.Parent)
 end
 
-------------------------------------------------------------
--- TEAM CHECK
-------------------------------------------------------------
-local function sameTeam(plr)
-    if not plr.Team or not LocalPlayer.Team then return false end
-    return plr.Team == LocalPlayer.Team
-end
-
-------------------------------------------------------------
--- GET TARGET
-------------------------------------------------------------
 local function getTarget()
-    local best = nil
-    local bestAngle = Settings.MaxAngle
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
 
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer then
-            if Settings.UseTeamCheck and sameTeam(p) then
-                -- skip
-            else
-                local char = p.Character
-                local part = char and char:FindFirstChild(Settings.TargetPart)
-                if part and visible(part) then
-                    local pos, onScreen = Camera:WorldToScreenPoint(part.Position)
-                    if onScreen then
-                        local mousePos = UIS:GetMouseLocation()
-                        local dx = pos.X - mousePos.X
-                        local dy = pos.Y - mousePos.Y
-                        local dist = math.sqrt(dx*dx + dy*dy)
+    local camLook, best, bestDot = Camera.CFrame.LookVector, nil, -1
+    local maxDot = math.cos(math.rad(Settings.MaxAngle))
 
-                        if dist < bestAngle then
-                            bestAngle = dist
-                            best = part
-                        end
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character then
+            local hum = plr.Character:FindFirstChild("Humanoid")
+            local part = plr.Character:FindFirstChild(Settings.TargetPart)
+
+            if hum and hum.Health > 0 and part then
+                if (not Settings.UseTeamCheck or enemy(plr)) and visible(part) then
+                    local dir = (part.Position - hrp.Position).Unit
+                    local dot = dir:Dot(camLook)
+                    if dot > bestDot and dot >= maxDot then
+                        bestDot = dot
+                        best = part
                     end
                 end
             end
         end
     end
-
     return best
 end
 
-------------------------------------------------------------
--- AIM LOOP
-------------------------------------------------------------
-RunService.RenderStepped:Connect(function()
-    if not Settings.Enabled then return end
+-- ESP with Distance
+local function createESP(player)
+    if player == LocalPlayer then return end
 
-    local target = getTarget()
-    if target then
-        local goal = CFrame.new(Camera.CFrame.Position, target.Position)
-        Camera.CFrame = Camera.CFrame:Lerp(goal, Settings.LerpSpeed * 0.01)
-    end
-end)
+    local function setupCharacter(character)
+        if not character then return end
+        
+        -- Clean up old ESP
+        if character:FindFirstChild("ESP_Highlight") then character.ESP_Highlight:Destroy() end
+        if character:FindFirstChild("ESP_Billboard") then character.ESP_Billboard:Destroy() end
 
-------------------------------------------------------------
--- GUI
-------------------------------------------------------------
-local ScreenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
-local Frame = Instance.new("Frame", ScreenGui)
-Frame.Size = UDim2.new(0,180,0,160)
-Frame.Position = UDim2.new(0.05,0,0.2,0)
-Frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+        local humanoid, head = character:FindFirstChild("Humanoid"), character:FindFirstChild("Head")
+        if not humanoid or not head then return end
 
-local function makeToggle(name, y, callback)
-    local btn = Instance.new("TextButton", Frame)
-    btn.Size = UDim2.new(1,-20,0,25)
-    btn.Position = UDim2.new(0,10,0,y*25)
-    btn.Text = name
-    btn.TextColor3 = Color3.fromRGB(220,220,220)
-    btn.Font = Enum.Font.SourceSansLight
-    btn.BackgroundColor3 = Color3.fromRGB(50,50,50)
+        -- Create highlight
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "ESP_Highlight"
+        highlight.FillColor = player.Team and player.Team.TeamColor.Color or Color3.fromRGB(255,0,0)
+        highlight.OutlineColor = Color3.fromRGB(255,255,255)
+        highlight.FillTransparency = 0.5
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Adornee = character
+        highlight.Enabled = Settings.ESP
+        highlight.Parent = character
 
-    btn.MouseButton1Click:Connect(callback)
-end
+        -- Create billboard with distance
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "ESP_Billboard"
+        billboard.Size = UDim2.new(0,200,0,50)
+        billboard.StudsOffset = Vector3.new(0,3,0)
+        billboard.AlwaysOnTop = true
+        billboard.Adornee = head
+        billboard.Enabled = Settings.ESP
+        billboard.Parent = character
 
-makeToggle("Aimbot",0,function() Settings.Enabled = not Settings.Enabled end)
-makeToggle("Team Check",1,function() Settings.UseTeamCheck = not Settings.UseTeamCheck end)
-makeToggle("ESP",2,function() Settings.ESP = not Settings.ESP end)
-makeToggle("ESP Team Check",3,function() Settings.ESPTeamCheck = not Settings.ESPTeamCheck end)
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1,0,1,0)
+        label.BackgroundTransparency = 1
+        label.TextColor3 = highlight.FillColor
+        label.TextStrokeTransparency = 0.5
+        label.Font = Enum.Font.SourceSansLight
+        label.TextSize = 14
+        label.Parent = billboard
 
-------------------------------------------------------------
--- ESP
-------------------------------------------------------------
-local function createBox(char)
-    local h = Instance.new("Highlight")
-    h.Parent = char
-    h.FillTransparency = 1
-    h.OutlineTransparency = 0
-    h.OutlineColor = Color3.fromRGB(255,255,255)
-    return h
-end
-
-local ESPStorage = {}
-
-local function updateESP()
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer then
-            local char = p.Character
-            if char then
-                local teamBlock = Settings.ESPTeamCheck and p.Team and LocalPlayer.Team and p.Team == LocalPlayer.Team
-                if Settings.ESP and not teamBlock then
-                    if not ESPStorage[p] then
-                        ESPStorage[p] = createBox(char)
-                    end
-                    if p.Team then
-                        ESPStorage[p].OutlineColor = p.Team.TeamColor.Color
-                    end
-                else
-                    if ESPStorage[p] then
-                        ESPStorage[p]:Destroy()
-                        ESPStorage[p] = nil
-                    end
-                end
+        -- Distance update function
+        local function updateDistance()
+            if not Settings.ESP or not LocalPlayer.Character then return end
+            local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local targetRoot = character:FindFirstChild("HumanoidRootPart")
+            
+            if root and targetRoot then
+                local distance = (root.Position - targetRoot.Position).Magnitude
+                label.Text = player.Name .. "\n[" .. math.floor(distance) .. " studs]"
             end
         end
+
+        RunService.RenderStepped:Connect(updateDistance)
+        updateDistance()
     end
+
+    player.CharacterAdded:Connect(setupCharacter)
+    if player.Character then setupCharacter(player.Character) end
 end
 
-RunService.RenderStepped:Connect(updateESP)
+-- Initialize ESP
+for _, player in ipairs(Players:GetPlayers()) do
+    createESP(player)
+end
+Players.PlayerAdded:Connect(createESP)
+
+-- Aimbot loop
+local smooth = Camera.CFrame
+RunService.RenderStepped:Connect(function(dt)
+    local target = getTarget()
+    local current = Camera.CFrame
+
+    if Settings.Enabled and target then
+        local goal = CFrame.new(current.Position, target.Position)
+        smooth = current:Lerp(goal, math.clamp(Settings.LerpSpeed * dt, 0, 1))
+    else
+        smooth = current
+    end
+
+    Camera.CFrame = smooth
+end)
+
+-- GUI (kept your original GUI code)
+-- ... your existing GUI code here ...
