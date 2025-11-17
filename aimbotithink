@@ -6,7 +6,8 @@ getgenv().Aimbot = {
     TargetPart = "Head",
     IgnoredTeams = {},
     MaxAngle = 120,
-    LerpSpeed = 8
+    LerpSpeed = 8,
+    ESP = false
 
 }
 loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/aimbotithink"))()
@@ -148,3 +149,73 @@ UIS.InputChanged:Connect(function(input)
         toggle.Position = UDim2.new(0,pos.X,0,pos.Y)
     end
 end)
+
+-- ESP
+local Players = game:GetService("Players")
+
+local function createESP(player)
+    if not getgenv().ESPEnabled or player == Players.LocalPlayer then return end
+    
+    local function setupCharacter(character)
+        if not character then return end
+        
+        -- Clean up existing ESP
+        if character:FindFirstChild("ESP_Highlight") then character.ESP_Highlight:Destroy() end
+        if character:FindFirstChild("ESP_Billboard") then character.ESP_Billboard:Destroy() end
+        
+        -- Create highlight
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "ESP_Highlight"
+        highlight.FillColor = player.Team and player.Team.TeamColor.Color or Color3.fromRGB(255, 0, 0)
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        highlight.FillTransparency = 0.5
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Parent = character
+        
+        -- Create name tag
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "ESP_Billboard"
+        billboard.Size = UDim2.new(0, 200, 0, 50)
+        billboard.StudsOffset = Vector3.new(0, 3, 0)
+        billboard.AlwaysOnTop = true
+        billboard.Adornee = character:WaitForChild("Head")
+        billboard.Parent = character
+        
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.BackgroundTransparency = 1
+        label.Text = player.Name
+        label.TextColor3 = Color3.fromRGB(255, 255, 255)
+        label.TextStrokeTransparency = 0
+        label.Font = Enum.Font.SourceSansLight
+        label.TextSize = 14
+        label.Parent = billboard
+    end
+    
+    player.CharacterAdded:Connect(setupCharacter)
+    if player.Character then setupCharacter(player.Character) end
+end
+
+-- Setup players
+for _, player in ipairs(Players:GetPlayers()) do
+    createESP(player)
+end
+
+Players.PlayerAdded:Connect(createESP)
+
+-- Toggle function
+getgenv().toggleESP = function()
+    getgenv().ESPEnabled = not getgenv().ESPEnabled
+    print("ESP: " .. (getgenv().ESPEnabled and "ON" or "OFF"))
+    
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Character then
+            if getgenv().ESPEnabled then
+                createESP(player)
+            else
+                if player.Character:FindFirstChild("ESP_Highlight") then player.Character.ESP_Highlight:Destroy() end
+                if player.Character:FindFirstChild("ESP_Billboard") then player.Character.ESP_Billboard:Destroy() end
+            end
+        end
+    end
+end
