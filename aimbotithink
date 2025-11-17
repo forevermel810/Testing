@@ -1,12 +1,14 @@
+-- SETTINGS --
 local s = {}
 s.enabled = false
-s.teamcheck = true
+s.teamcheck = false
 s.vischeck = true
 s.partname = "Head"
-s.delay = 0.00005
 s.angle = 60
 s.ignore = {}
+s.lerpspeed = 0.35 -- fixed speed toward target
 
+-- SERVICES --
 local plrs = game:GetService("Players")
 local lp = plrs.LocalPlayer
 local cam = workspace.CurrentCamera
@@ -14,6 +16,7 @@ local run = game:GetService("RunService")
 local ws = game:GetService("Workspace")
 local ui = game:GetService("UserInputService")
 
+-- FUNCTIONS --
 local function enemy(p)
     return not (p.Team == lp.Team or table.find(s.ignore, p.Team))
 end
@@ -69,24 +72,21 @@ local function target()
     return best
 end
 
+-- CAMERA LOCK --
 if getgenv().c then
     getgenv().c:Disconnect()
 end
 
-local acc = 0
 getgenv().c = run.RenderStepped:Connect(function(dt)
-    acc = acc + dt
-    if acc < s.delay then return end
-    acc = 0
-
     if not s.enabled then return end
     local t = target()
     if t then
         local cf = cam.CFrame
-        cam.CFrame = cf:Lerp(CFrame.new(cf.Position, t.Position), 0.35)
+        cam.CFrame = cf:Lerp(CFrame.new(cf.Position, t.Position), s.lerpspeed) -- fixed speed
     end
 end)
 
+-- GUI CREATION --
 local pg = lp:WaitForChild("PlayerGui")
 if pg:FindFirstChild("LockUI") then
     pg.LockUI:Destroy()
@@ -108,13 +108,8 @@ b.TextColor3 = Color3.fromRGB(200,200,200)
 local c2 = Instance.new("UICorner", b)
 c2.CornerRadius = UDim.new(0,24)
 
-b.MouseEnter:Connect(function()
-    b.BackgroundColor3 = Color3.fromRGB(55,55,55)
-end)
-
-b.MouseLeave:Connect(function()
-    b.BackgroundColor3 = Color3.fromRGB(35,35,35)
-end)
+b.MouseEnter:Connect(function() b.BackgroundColor3 = Color3.fromRGB(55,55,55) end)
+b.MouseLeave:Connect(function() b.BackgroundColor3 = Color3.fromRGB(35,35,35) end)
 
 local lock = false
 b.MouseButton1Click:Connect(function()
@@ -126,6 +121,7 @@ b.MouseButton1Click:Connect(function()
     lock = false
 end)
 
+-- DRAG FIXED FOR MOUSE AND TOUCH --
 local drag = false
 local off = Vector2.new()
 local bar = Instance.new("Frame", b)
@@ -135,8 +131,7 @@ bar.BackgroundTransparency = 1
 bar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         drag = true
-        local pos = ui:GetMouseLocation()
-        off = pos - Vector2.new(b.AbsolutePosition.X, b.AbsolutePosition.Y)
+        off = (input.Position or ui:GetMouseLocation()) - Vector2.new(b.AbsolutePosition.X, b.AbsolutePosition.Y)
     end
 end)
 
@@ -148,13 +143,7 @@ end)
 
 ui.InputChanged:Connect(function(input)
     if drag and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local pos
-        if input.UserInputType == Enum.UserInputType.Touch then
-            pos = input.Position
-        else
-            pos = ui:GetMouseLocation()
-        end
-        local p = pos - off
-        b.Position = UDim2.new(0,p.X,0,p.Y)
+        local pos = input.Position or ui:GetMouseLocation()
+        b.Position = UDim2.new(0, pos.X - off.X, 0, pos.Y - off.Y)
     end
 end)
