@@ -8,7 +8,6 @@ getgenv().Aimbot = {
     MaxAngle = 120,
     LerpSpeed = 8,
     ESP = false
-
 }
 loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/aimbotithink"))()
 ]]
@@ -24,7 +23,7 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local UIS = game:GetService("UserInputService")
 
--- FUNCTIONS
+-- HELPER FUNCTIONS
 local function enemy(player)
     return not (player.Team == LocalPlayer.Team or table.find(Settings.IgnoredTeams, player.Team))
 end
@@ -32,11 +31,9 @@ end
 local function visible(part)
     if not Settings.UseVisibilityCheck then return true end
     if not (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head")) then return false end
-
     local origin = LocalPlayer.Character.Head.Position
     local dir = part.Position - origin
     local ray = Ray.new(origin, dir)
-
     local hit = Workspace:FindPartOnRayWithIgnoreList(ray, {LocalPlayer.Character})
     return hit and hit:IsDescendantOf(part.Parent)
 end
@@ -59,7 +56,6 @@ local function getTarget()
                 if (not Settings.UseTeamCheck or enemy(plr)) and visible(part) then
                     local dir = (part.Position - hrp.Position).Unit
                     local dot = dir:Dot(camLook)
-
                     if dot > bestDot and dot >= maxDot then
                         bestDot = dot
                         best = part
@@ -109,13 +105,8 @@ toggle.TextColor3 = Color3.fromRGB(200,200,200)
 local corner = Instance.new("UICorner", toggle)
 corner.CornerRadius = UDim.new(0,24)
 
-toggle.MouseEnter:Connect(function()
-    toggle.BackgroundColor3 = Color3.fromRGB(55,55,55)
-end)
-
-toggle.MouseLeave:Connect(function()
-    toggle.BackgroundColor3 = Color3.fromRGB(35,35,35)
-end)
+toggle.MouseEnter:Connect(function() toggle.BackgroundColor3 = Color3.fromRGB(55,55,55) end)
+toggle.MouseLeave:Connect(function() toggle.BackgroundColor3 = Color3.fromRGB(35,35,35) end)
 
 toggle.MouseButton1Click:Connect(function()
     Settings.Enabled = not Settings.Enabled
@@ -125,7 +116,6 @@ end)
 -- DRAGGING
 local dragging = false
 local offset = Vector2.new()
-
 local drag = Instance.new("Frame", toggle)
 drag.Size = UDim2.new(1,0,0,30)
 drag.BackgroundTransparency = 1
@@ -150,72 +140,59 @@ UIS.InputChanged:Connect(function(input)
     end
 end)
 
--- ESP
-local Players = game:GetService("Players")
-
+-- ESP FUNCTIONALITY
 local function createESP(player)
-    if not getgenv().ESPEnabled or player == Players.LocalPlayer then return end
-    
+    if player == LocalPlayer then return end
+
     local function setupCharacter(character)
         if not character then return end
-        
-        -- Clean up existing ESP
+        -- Remove old ESP
         if character:FindFirstChild("ESP_Highlight") then character.ESP_Highlight:Destroy() end
         if character:FindFirstChild("ESP_Billboard") then character.ESP_Billboard:Destroy() end
-        
-        -- Create highlight
+
+        local humanoid = character:FindFirstChild("Humanoid")
+        local head = character:FindFirstChild("Head")
+        if not humanoid or not head then return end
+
+        -- Highlight whole body
         local highlight = Instance.new("Highlight")
         highlight.Name = "ESP_Highlight"
-        highlight.FillColor = player.Team and player.Team.TeamColor.Color or Color3.fromRGB(255, 0, 0)
-        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        highlight.FillColor = player.Team and player.Team.TeamColor.Color or Color3.fromRGB(255,0,0)
+        highlight.OutlineColor = Color3.fromRGB(255,255,255)
         highlight.FillTransparency = 0.5
         highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Adornee = character
+        highlight.Enabled = Settings.ESP
         highlight.Parent = character
-        
-        -- Create name tag
+
+        -- Billboard name tag
         local billboard = Instance.new("BillboardGui")
         billboard.Name = "ESP_Billboard"
-        billboard.Size = UDim2.new(0, 200, 0, 50)
-        billboard.StudsOffset = Vector3.new(0, 3, 0)
+        billboard.Size = UDim2.new(0,200,0,50)
+        billboard.StudsOffset = Vector3.new(0,3,0)
         billboard.AlwaysOnTop = true
-        billboard.Adornee = character:WaitForChild("Head")
+        billboard.Adornee = head
+        billboard.Enabled = Settings.ESP
         billboard.Parent = character
-        
+
         local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(1, 0, 1, 0)
+        label.Size = UDim2.new(1,0,1,0)
         label.BackgroundTransparency = 1
         label.Text = player.Name
-        label.TextColor3 = Color3.fromRGB(255, 255, 255)
-        label.TextStrokeTransparency = 0
+        label.TextColor3 = highlight.FillColor
+        label.TextStrokeTransparency = 0.5
         label.Font = Enum.Font.SourceSansLight
         label.TextSize = 14
         label.Parent = billboard
     end
-    
+
     player.CharacterAdded:Connect(setupCharacter)
     if player.Character then setupCharacter(player.Character) end
 end
 
--- Setup players
+-- Initialize ESP for existing and new players
 for _, player in ipairs(Players:GetPlayers()) do
     createESP(player)
 end
 
 Players.PlayerAdded:Connect(createESP)
-
--- Toggle function
-getgenv().toggleESP = function()
-    getgenv().ESPEnabled = not getgenv().ESPEnabled
-    print("ESP: " .. (getgenv().ESPEnabled and "ON" or "OFF"))
-    
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player.Character then
-            if getgenv().ESPEnabled then
-                createESP(player)
-            else
-                if player.Character:FindFirstChild("ESP_Highlight") then player.Character.ESP_Highlight:Destroy() end
-                if player.Character:FindFirstChild("ESP_Billboard") then player.Character.ESP_Billboard:Destroy() end
-            end
-        end
-    end
-end
