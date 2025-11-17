@@ -1,0 +1,160 @@
+local s = {}
+s.enabled = false
+s.teamcheck = true
+s.vischeck = true
+s.partname = "Head"
+s.delay = 0.00005
+s.angle = 60
+s.ignore = {}
+
+local plrs = game:GetService("Players")
+local lp = plrs.LocalPlayer
+local cam = workspace.CurrentCamera
+local run = game:GetService("RunService")
+local ws = game:GetService("Workspace")
+local ui = game:GetService("UserInputService")
+
+local function enemy(p)
+    return not (p.Team == lp.Team or table.find(s.ignore, p.Team))
+end
+
+local function see(part)
+    if not s.vischeck then return true end
+    local head = lp.Character and lp.Character:FindFirstChild("Head")
+    if not head then return false end
+
+    local params = RaycastParams.new()
+    params.FilterDescendantsInstances = {lp.Character}
+    params.FilterType = Enum.RaycastFilterType.Blacklist
+
+    local dir = part.Position - head.Position
+    local r = ws:Raycast(head.Position, dir, params)
+    if not r then return false end
+    return r.Instance:IsDescendantOf(part.Parent)
+end
+
+local function target()
+    local c = lp.Character
+    if not c then return end
+
+    local hrp = c:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local look = cam.CFrame.LookVector
+    local best
+    local bestdot = -1
+    local limit = math.cos(math.rad(s.angle))
+
+    for _,p in pairs(plrs:GetPlayers()) do
+        if p ~= lp then
+            local ch = p.Character
+            if ch then
+                local h = ch:FindFirstChild("Humanoid")
+                local part = ch:FindFirstChild(s.partname)
+                if h and h.Health > 0 and part then
+                    local ok = true
+                    if s.teamcheck and not enemy(p) then ok = false end
+                    if ok and see(part) then
+                        local dir = (part.Position - hrp.Position).Unit
+                        local dot = dir:Dot(look)
+                        if dot > bestdot and dot >= limit then
+                            bestdot = dot
+                            best = part
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return best
+end
+
+if getgenv().c then
+    getgenv().c:Disconnect()
+end
+
+local acc = 0
+getgenv().c = run.RenderStepped:Connect(function(dt)
+    acc = acc + dt
+    if acc < s.delay then return end
+    acc = 0
+
+    if not s.enabled then return end
+    local t = target()
+    if t then
+        local cf = cam.CFrame
+        cam.CFrame = cf:Lerp(CFrame.new(cf.Position, t.Position), 0.35)
+    end
+end)
+
+local pg = lp:WaitForChild("PlayerGui")
+if pg:FindFirstChild("LockUI") then
+    pg.LockUI:Destroy()
+end
+
+local g = Instance.new("ScreenGui", pg)
+g.Name = "LockUI"
+g.ResetOnSpawn = false
+
+local b = Instance.new("TextButton", g)
+b.Size = UDim2.new(0,180,0,60)
+b.Position = UDim2.new(1,-200,0,100)
+b.Text = "AIMBOT OFF"
+b.Font = Enum.Font.SourceSansLight
+b.TextSize = 22
+b.BackgroundColor3 = Color3.fromRGB(35,35,35)
+b.TextColor3 = Color3.fromRGB(200,200,200)
+
+local c2 = Instance.new("UICorner", b)
+c2.CornerRadius = UDim.new(0,24)
+
+b.MouseEnter:Connect(function()
+    b.BackgroundColor3 = Color3.fromRGB(55,55,55)
+end)
+
+b.MouseLeave:Connect(function()
+    b.BackgroundColor3 = Color3.fromRGB(35,35,35)
+end)
+
+local lock = false
+b.MouseButton1Click:Connect(function()
+    if lock then return end
+    lock = true
+    s.enabled = not s.enabled
+    b.Text = s.enabled and "AIMBOT ON" or "AIMBOT OFF"
+    task.wait(0.15)
+    lock = false
+end)
+
+local drag = false
+local off = Vector2.new()
+local bar = Instance.new("Frame", b)
+bar.Size = UDim2.new(1,0,0,30)
+bar.BackgroundTransparency = 1
+
+bar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        drag = true
+        local pos = ui:GetMouseLocation()
+        off = pos - Vector2.new(b.AbsolutePosition.X, b.AbsolutePosition.Y)
+    end
+end)
+
+bar.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        drag = false
+    end
+end)
+
+ui.InputChanged:Connect(function(input)
+    if drag and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local pos
+        if input.UserInputType == Enum.UserInputType.Touch then
+            pos = input.Position
+        else
+            pos = ui:GetMouseLocation()
+        end
+        local p = pos - off
+        b.Position = UDim2.new(0,p.X,0,p.Y)
+    end
+end)
