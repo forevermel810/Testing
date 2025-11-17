@@ -1,5 +1,17 @@
+-- getgenv().Aimbot = {
+    Enabled = false,
+    UseTeamCheck = false,
+    UseVisibilityCheck = true,
+    TargetPart = "Head",
+    IgnoredTeams = {},
+    MaxAngle = 120,
+    LerpSpeed = 8
+}
+
+loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/aimbotithink"))() --
+
 -- SETTINGS TABLE REFERENCE
-local Settings = getgenv().Camlock
+local Settings = getgenv().Aimbot
 
 -- SERVICES
 local Players = game:GetService("Players")
@@ -57,10 +69,10 @@ local function getTarget()
 end
 
 -- CAMERA LOCK LOOP
-if getgenv().CamlockConnection then getgenv().CamlockConnection:Disconnect() end
+if getgenv().AimbotConnection then getgenv().AimbotConnection:Disconnect() end
 local smooth = Camera.CFrame
 
-getgenv().CamlockConnection = RunService.RenderStepped:Connect(function(dt)
+getgenv().AimbotConnection = RunService.RenderStepped:Connect(function(dt)
     local target = getTarget()
     local current = Camera.CFrame
 
@@ -76,10 +88,10 @@ end)
 
 -- GUI
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-if PlayerGui:FindFirstChild("CamlockUI") then PlayerGui.CamlockUI:Destroy() end
+if PlayerGui:FindFirstChild("AimbotUI") then PlayerGui.AimbotUI:Destroy() end
 
 local gui = Instance.new("ScreenGui", PlayerGui)
-gui.Name = "CamlockUI"
+gui.Name = "AimbotUI"
 gui.ResetOnSpawn = false
 
 local toggle = Instance.new("TextButton", gui)
