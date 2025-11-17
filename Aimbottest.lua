@@ -142,12 +142,18 @@ end)
 -- ESP FUNCTIONALITY WITH DISTANCE
 local function createESP(player)
     if player == LocalPlayer then return end
-    
-    -- Add team check for ESP
-    if Settings.UseTeamCheck and not enemy(player) then return end
 
     local function setupCharacter(character)
         if not character then return end
+        
+        -- Team check for ESP visibility
+        if Settings.UseTeamCheck and not enemy(player) then
+            -- Remove ESP if teammate and team check is enabled
+            if character:FindFirstChild("ESP_Highlight") then character.ESP_Highlight:Destroy() end
+            if character:FindFirstChild("ESP_Billboard") then character.ESP_Billboard:Destroy() end
+            return
+        end
+        
         -- Remove old ESP
         if character:FindFirstChild("ESP_Highlight") then character.ESP_Highlight:Destroy() end
         if character:FindFirstChild("ESP_Billboard") then character.ESP_Billboard:Destroy() end
@@ -189,6 +195,17 @@ local function createESP(player)
         -- Distance update function
         local function updateDistance()
             if not Settings.ESP or not LocalPlayer.Character then return end
+            
+            -- Check if we should still show ESP based on team settings
+            if Settings.UseTeamCheck and not enemy(player) then
+                highlight.Enabled = false
+                billboard.Enabled = false
+                return
+            else
+                highlight.Enabled = Settings.ESP
+                billboard.Enabled = Settings.ESP
+            end
+            
             local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
             local targetRoot = character:FindFirstChild("HumanoidRootPart")
             
@@ -206,9 +223,20 @@ local function createESP(player)
     if player.Character then setupCharacter(player.Character) end
 end
 
+-- Function to refresh all ESP when team check changes
+local function refreshAllESP()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Character then
+            createESP(player)
+        end
+    end
+end
+
 -- Initialize ESP for existing and new players
 for _, player in ipairs(Players:GetPlayers()) do
     createESP(player)
 end
-
 Players.PlayerAdded:Connect(createESP)
+
+-- Make refresh function available to call when team check changes
+getgenv().refreshESP = refreshAllESP
