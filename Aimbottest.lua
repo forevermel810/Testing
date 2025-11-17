@@ -25,9 +25,12 @@ local UIS = game:GetService("UserInputService")
 
 -- FIXED HELPER FUNCTIONS
 local function enemy(player)
-    -- If team check is disabled, everyone is an enemy
     if not Settings.UseTeamCheck then
-        return true
+        return true  -- If team check is off, everyone is enemy
+    end
+    
+    if not player.Team then
+        return true  -- If player has no team, they're enemy
     end
     
     -- Check if same team
@@ -35,9 +38,9 @@ local function enemy(player)
         return false
     end
     
-    -- Check ignored teams by comparing Team objects, not TeamColor
-    for _, ignoredTeam in ipairs(Settings.IgnoredTeams) do
-        if player.Team == ignoredTeam then
+    -- FIXED: Check team NAMES instead of team objects
+    for _, ignoredTeamName in ipairs(Settings.IgnoredTeams) do
+        if player.Team.Name == ignoredTeamName then
             return false
         end
     end
@@ -68,8 +71,8 @@ local function getTarget()
             local hum = plr.Character:FindFirstChild("Humanoid")
             local part = plr.Character:FindFirstChild(Settings.TargetPart)
 
-            -- CRITICAL: Check if humanoid exists AND health > 0
             if hum and hum.Health > 0 and part then
+                -- FIXED: Simple enemy check without complex logic
                 if enemy(plr) and (not Settings.UseVisibilityCheck or visible(part)) then
                     local dir = (part.Position - hrp.Position).Unit
                     local dot = dir:Dot(camLook)
@@ -157,172 +160,160 @@ UIS.InputChanged:Connect(function(input)
     end
 end)
 
--- FIXED ESP FUNCTIONALITY WITH PROPER TEAM HANDLING
+-- FIXED ESP SYSTEM
+local ESPHolders = {}
+
 local function createESP(player)
     if player == LocalPlayer then return end
-
+    
+    -- Remove existing ESP if any
+    if ESPHolders[player] then
+        for _, object in pairs(ESPHolders[player]) do
+            if object then
+                object:Destroy()
+            end
+        end
+    end
+    
+    ESPHolders[player] = {}
+    
     local function setupCharacter(character)
         if not character then return end
         
-        -- Wait for character to fully load
-        local humanoid = character:WaitForChild("Humanoid", 5)
-        local head = character:WaitForChild("Head", 5)
+        -- Wait for character to load
+        local humanoid = character:WaitForChild("Humanoid", 2)
+        local head = character:WaitForChild("Head", 2)
         if not humanoid or not head then return end
-
-        -- Remove old ESP if it exists
-        if character:FindFirstChild("ESP_Highlight") then 
-            character.ESP_Highlight:Destroy() 
+        
+        -- Remove old ESP
+        if ESPHolders[player] then
+            for _, object in pairs(ESPHolders[player]) do
+                if object then
+                    object:Destroy()
+                end
+            end
         end
-        if character:FindFirstChild("ESP_Billboard") then 
-            character.ESP_Billboard:Destroy() 
-        end
-
-        -- Only create ESP if player meets conditions
-        if not enemy(player) then
-            return -- Don't create ESP for teammates or ignored teams
-        end
-
-        -- Highlight whole body
+        
+        ESPHolders[player] = {}
+        
+        -- Create Highlight (ALWAYS create, control visibility with Enabled)
         local highlight = Instance.new("Highlight")
         highlight.Name = "ESP_Highlight"
-        highlight.FillColor = player.Team and player.Team.TeamColor.Color or Color3.fromRGB(255,0,0)
-        highlight.OutlineColor = Color3.fromRGB(255,255,255)
+        highlight.FillColor = player.Team and player.Team.TeamColor.Color or Color3.fromRGB(255, 0, 0)
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
         highlight.FillTransparency = 0.5
+        highlight.OutlineTransparency = 0
         highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
         highlight.Adornee = character
-        highlight.Enabled = Settings.ESP
+        highlight.Enabled = Settings.ESP and enemy(player)
         highlight.Parent = character
-
-        -- Billboard with name and distance
+        
+        -- Create Billboard
         local billboard = Instance.new("BillboardGui")
         billboard.Name = "ESP_Billboard"
-        billboard.Size = UDim2.new(0,200,0,50)
-        billboard.StudsOffset = Vector3.new(0,3,0)
+        billboard.Size = UDim2.new(0, 200, 0, 50)
+        billboard.StudsOffset = Vector3.new(0, 3, 0)
         billboard.AlwaysOnTop = true
         billboard.Adornee = head
-        billboard.Enabled = Settings.ESP
+        billboard.Enabled = Settings.ESP and enemy(player)
         billboard.Parent = character
-
+        
         local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(1,0,1,0)
+        label.Size = UDim2.new(1, 0, 1, 0)
         label.BackgroundTransparency = 1
         label.TextColor3 = highlight.FillColor
-        label.TextStrokeTransparency = 0.5
-        label.Font = Enum.Font.SourceSansLight
+        label.TextStrokeColor3 = Color3.new(0, 0, 0)
+        label.TextStrokeTransparency = 0
+        label.Font = Enum.Font.SourceSansBold
         label.TextSize = 14
+        label.Text = player.Name
         label.Parent = billboard
-
-        -- Distance update function
-        local function updateDistance()
-            if not Settings.ESP or not LocalPlayer.Character or not character.Parent then
-                highlight.Enabled = false
-                billboard.Enabled = false
+        
+        -- Store ESP objects
+        ESPHolders[player].highlight = highlight
+        ESPHolders[player].billboard = billboard
+        ESPHolders[player].label = label
+        
+        -- REAL-TIME UPDATE FUNCTION
+        local function updateESP()
+            if not character or not character.Parent then
                 return
             end
-
-            -- Re-check team conditions every frame
-            if not enemy(player) then
-                highlight.Enabled = false
-                billboard.Enabled = false
-                return
-            else
-                highlight.Enabled = Settings.ESP
-                billboard.Enabled = Settings.ESP
+            
+            local shouldShow = Settings.ESP and enemy(player) and humanoid.Health > 0
+            
+            if highlight then
+                highlight.Enabled = shouldShow
             end
-
-            local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            local targetRoot = character:FindFirstChild("HumanoidRootPart")
-
-            if root and targetRoot and humanoid.Health > 0 then
-                local distance = (root.Position - targetRoot.Position).Magnitude
-                label.Text = player.Name .. "\n[" .. math.floor(distance) .. " studs]"
-                highlight.Enabled = Settings.ESP
-                billboard.Enabled = Settings.ESP
-            else
-                -- Hide ESP if player is dead
-                highlight.Enabled = false
-                billboard.Enabled = false
+            if billboard then
+                billboard.Enabled = shouldShow
+            end
+            
+            -- Update distance text
+            if label and LocalPlayer.Character then
+                local localRoot = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                local targetRoot = character:FindFirstChild("HumanoidRootPart")
+                
+                if localRoot and targetRoot and humanoid.Health > 0 then
+                    local distance = (localRoot.Position - targetRoot.Position).Magnitude
+                    label.Text = player.Name .. "\n[" .. math.floor(distance) .. " studs]"
+                else
+                    label.Text = player.Name .. "\n[DEAD]"
+                end
             end
         end
-
-        -- Connect to humanoid to detect death
-        humanoid.Died:Connect(function()
-            highlight.Enabled = false
-            billboard.Enabled = false
-        end)
-
-        -- Update distance every frame
-        local distanceConnection
-        distanceConnection = RunService.RenderStepped:Connect(updateDistance)
         
-        -- Clean up when character is removed
-        character.AncestryChanged:Connect(function(_, parent)
-            if not parent then
-                distanceConnection:Disconnect()
-            end
+        -- Connect events
+        humanoid.Died:Connect(function()
+            if highlight then highlight.Enabled = false end
+            if billboard then billboard.Enabled = false end
         end)
+        
+        -- Update every frame
+        local conn
+        conn = RunService.Heartbeat:Connect(function()
+            if not character or not character.Parent then
+                conn:Disconnect()
+                return
+            end
+            updateESP()
+        end)
+        
+        ESPHolders[player].connection = conn
     end
-
-    -- Handle character respawns
-    player.CharacterAdded:Connect(setupCharacter)
     
-    -- Handle initial character
+    -- Handle character added
+    player.CharacterAdded:Connect(setupCharacter)
     if player.Character then
         setupCharacter(player.Character)
     end
 end
 
--- Function to refresh all ESP when team check changes
+-- FIXED REFRESH FUNCTION
 local function refreshAllESP()
     for _, player in ipairs(Players:GetPlayers()) do
-        if player.Character then
-            createESP(player)
-        end
+        createESP(player)
     end
 end
 
--- Initialize ESP for existing and new players
+-- Initialize ESP for all players
 for _, player in ipairs(Players:GetPlayers()) do
     createESP(player)
 end
+
 Players.PlayerAdded:Connect(createESP)
-
--- Make refresh function available to call when team check changes
-getgenv().refreshESP = refreshAllESP
-
--- ESP TOGGLE FUNCTIONALITY
-local function updateAllESP()
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player.Character then
-            local highlight = player.Character:FindFirstChild("ESP_Highlight")
-            local billboard = player.Character:FindFirstChild("ESP_Billboard")
-            
-            if highlight then
-                highlight.Enabled = Settings.ESP and enemy(player)
-            end
-            if billboard then
-                billboard.Enabled = Settings.ESP and enemy(player)
+Players.PlayerRemoving:Connect(function(player)
+    if ESPHolders[player] then
+        for _, object in pairs(ESPHolders[player]) do
+            if object and typeof(object) ~= "RBXScriptConnection" then
+                object:Destroy()
             end
         end
+        ESPHolders[player] = nil
     end
-end
+end)
 
--- Connect ESP toggle to settings changes
-getgenv().AimbotSettings = Settings
+-- Make refresh function available
+getgenv().refreshESP = refreshAllESP
 
--- Helper function to properly set IgnoredTeams
-local function updateIgnoredTeams()
-    refreshAllESP()
-end
-
--- Example of how to use IgnoredTeams properly:
---[[
-getgenv().Aimbot.IgnoredTeams = {game:GetService("Teams")["TeamName"]}
--- OR for multiple teams:
-getgenv().Aimbot.IgnoredTeams = {
-    game:GetService("Teams")["Team1"],
-    game:GetService("Teams")["Team2"]
-}
-]]
-
-print("Aimbot loaded! Use: getgenv().Aimbot.IgnoredTeams = {game:GetService('Teams')['TeamName']} to ignore teams")
+print("it should work now")
