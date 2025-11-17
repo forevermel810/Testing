@@ -1,4 +1,5 @@
--- getgenv().Aimbot = {
+--[[
+getgenv().Aimbot = {
     Enabled = false,
     UseTeamCheck = false,
     UseVisibilityCheck = true,
@@ -7,8 +8,7 @@
     MaxAngle = 120,
     LerpSpeed = 8
 }
-
-loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/aimbotithink"))() --
+]]
 
 -- SETTINGS TABLE REFERENCE
 local Settings = getgenv().Aimbot
