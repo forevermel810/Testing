@@ -1,4 +1,7 @@
--- SERVICES --
+-- SETTINGS TABLE REFERENCE
+local Settings = getgenv().Camlock
+
+-- SERVICES
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
@@ -6,128 +9,128 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local UIS = game:GetService("UserInputService")
 
--- SETTINGS --
-getgenv().CameraLockEnabled = false
-getgenv().UseTeamCheck = false
-getgenv().UseVisibilityCheck = true
-getgenv().TargetPartName = "Head" -- change to "HumanoidRootPart" if needed
-local maxAngle = 120
-local ignoredTeams = {}
-local lerpSpeed = 8 -- camera speed
-
--- HELPER FUNCTIONS --
-
-local function isEnemy(player)
-    return not (player.Team == LocalPlayer.Team or table.find(ignoredTeams, player.Team))
+-- FUNCTIONS
+local function enemy(player)
+    return not (player.Team == LocalPlayer.Team or table.find(Settings.IgnoredTeams, player.Team))
 end
 
 local function visible(part)
-    if not getgenv().UseVisibilityCheck then return true end
+    if not Settings.UseVisibilityCheck then return true end
     if not (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head")) then return false end
+
     local origin = LocalPlayer.Character.Head.Position
-    local direction = part.Position - origin
-    local ray = Ray.new(origin, direction)
+    local dir = part.Position - origin
+    local ray = Ray.new(origin, dir)
+
     local hit = Workspace:FindPartOnRayWithIgnoreList(ray, {LocalPlayer.Character})
     return hit and hit:IsDescendantOf(part.Parent)
 end
 
 local function getTarget()
-    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
-    local hrp = LocalPlayer.Character.HumanoidRootPart
-    local camLook = Camera.CFrame.LookVector
-    local bestPlayer, bestDot = nil, -1
-    local maxDot = math.cos(math.rad(maxAngle))
+    if not LocalPlayer.Character then return end
+    local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
 
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            local humanoid = player.Character:FindFirstChild("Humanoid")
-            local part = player.Character:FindFirstChild(getgenv().TargetPartName)
-            if humanoid and humanoid.Health > 0 and part and (not getgenv().UseTeamCheck or isEnemy(player)) and visible(part) then
-                local dir = (part.Position - hrp.Position).Unit
-                local dot = dir:Dot(camLook)
-                if dot > bestDot and dot >= maxDot then
-                    bestDot = dot
-                    bestPlayer = part
+    local camLook = Camera.CFrame.LookVector
+    local best, bestDot = nil, -1
+    local maxDot = math.cos(math.rad(Settings.MaxAngle))
+
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character then
+            local hum = plr.Character:FindFirstChild("Humanoid")
+            local part = plr.Character:FindFirstChild(Settings.TargetPart)
+
+            if hum and hum.Health > 0 and part then
+                if (not Settings.UseTeamCheck or enemy(plr)) and visible(part) then
+                    local dir = (part.Position - hrp.Position).Unit
+                    local dot = dir:Dot(camLook)
+
+                    if dot > bestDot and dot >= maxDot then
+                        bestDot = dot
+                        best = part
+                    end
                 end
             end
         end
     end
-
-    return bestPlayer
+    return best
 end
 
--- CAMERA LOCK CONNECTION --
-if getgenv().CameraLockConnection then getgenv().CameraLockConnection:Disconnect() end
+-- CAMERA LOCK LOOP
+if getgenv().CamlockConnection then getgenv().CamlockConnection:Disconnect() end
+local smooth = Camera.CFrame
 
-local lastCFrame = Camera.CFrame
-getgenv().CameraLockConnection = RunService.RenderStepped:Connect(function(dt)
+getgenv().CamlockConnection = RunService.RenderStepped:Connect(function(dt)
     local target = getTarget()
     local current = Camera.CFrame
 
-    if getgenv().CameraLockEnabled and target and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local targetCFrame = CFrame.new(current.Position, target.Position)
-        lastCFrame = current:Lerp(targetCFrame, math.clamp(lerpSpeed * dt, 0, 1))
+    if Settings.Enabled and target then
+        local goal = CFrame.new(current.Position, target.Position)
+        smooth = current:Lerp(goal, math.clamp(Settings.LerpSpeed * dt, 0, 1))
     else
-        -- smooth fade-out when no target or disabled
-        lastCFrame = current:Lerp(lastCFrame, math.clamp(lerpSpeed * 0.5 * dt, 0, 1))
+        smooth = current
     end
 
-    Camera.CFrame = lastCFrame
+    Camera.CFrame = smooth
 end)
 
--- GUI CREATION --
+-- GUI
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-if PlayerGui:FindFirstChild("CameraLockGui") then PlayerGui.CameraLockGui:Destroy() end
+if PlayerGui:FindFirstChild("CamlockUI") then PlayerGui.CamlockUI:Destroy() end
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "CameraLockGui"
+local gui = Instance.new("ScreenGui", PlayerGui)
+gui.Name = "CamlockUI"
 gui.ResetOnSpawn = false
-gui.Parent = PlayerGui
 
-local toggleButton = Instance.new("TextButton")
-toggleButton.Size = UDim2.new(0,180,0,60)
-toggleButton.Position = UDim2.new(1,-200,0,100)
-toggleButton.Text = "AIMBOT: OFF"
-toggleButton.Font = Enum.Font.SourceSansLight
-toggleButton.TextSize = 22
-toggleButton.BackgroundColor3 = Color3.fromRGB(35,35,35)
-toggleButton.TextColor3 = Color3.fromRGB(200,200,200)
-toggleButton.Parent = gui
+local toggle = Instance.new("TextButton", gui)
+toggle.Size = UDim2.new(0,180,0,60)
+toggle.Position = UDim2.new(1,-200,0,100)
+toggle.Text = "AIMBOT: OFF"
+toggle.Font = Enum.Font.SourceSansLight
+toggle.TextSize = 22
+toggle.BackgroundColor3 = Color3.fromRGB(35,35,35)
+toggle.TextColor3 = Color3.fromRGB(200,200,200)
 
-local corner = Instance.new("UICorner")
+local corner = Instance.new("UICorner", toggle)
 corner.CornerRadius = UDim.new(0,24)
-corner.Parent = toggleButton
 
-toggleButton.MouseEnter:Connect(function() toggleButton.BackgroundColor3 = Color3.fromRGB(55,55,55) end)
-toggleButton.MouseLeave:Connect(function() toggleButton.BackgroundColor3 = Color3.fromRGB(35,35,35) end)
-
-toggleButton.MouseButton1Click:Connect(function()
-    getgenv().CameraLockEnabled = not getgenv().CameraLockEnabled
-    toggleButton.Text = "AIMBOT: " .. (getgenv().CameraLockEnabled and "ON" or "OFF")
+toggle.MouseEnter:Connect(function()
+    toggle.BackgroundColor3 = Color3.fromRGB(55,55,55)
 end)
 
--- DRAG FUNCTIONALITY --
-local dragging, dragOffset = false, Vector2.new()
-local dragBar = Instance.new("Frame", toggleButton)
-dragBar.Size = UDim2.new(1,0,0,30)
-dragBar.BackgroundTransparency = 1
+toggle.MouseLeave:Connect(function()
+    toggle.BackgroundColor3 = Color3.fromRGB(35,35,35)
+end)
 
-dragBar.InputBegan:Connect(function(input)
+toggle.MouseButton1Click:Connect(function()
+    Settings.Enabled = not Settings.Enabled
+    toggle.Text = "AIMBOT: " .. (Settings.Enabled and "ON" or "OFF")
+end)
+
+-- DRAGGING
+local dragging = false
+local offset = Vector2.new()
+
+local drag = Instance.new("Frame", toggle)
+drag.Size = UDim2.new(1,0,0,30)
+drag.BackgroundTransparency = 1
+
+drag.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         dragging = true
-        dragOffset = UIS:GetMouseLocation() - Vector2.new(toggleButton.AbsolutePosition.X, toggleButton.AbsolutePosition.Y)
+        offset = UIS:GetMouseLocation() - toggle.AbsolutePosition
     end
 end)
 
-dragBar.InputEnded:Connect(function(input)
+drag.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         dragging = false
     end
 end)
 
 UIS.InputChanged:Connect(function(input)
-    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local pos = UIS:GetMouseLocation() - dragOffset
-        toggleButton.Position = UDim2.new(0, pos.X, 0, pos.Y)
+    if dragging then
+        local pos = UIS:GetMouseLocation() - offset
+        toggle.Position = UDim2.new(0,pos.X,0,pos.Y)
     end
 end)
