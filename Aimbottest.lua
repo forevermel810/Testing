@@ -142,6 +142,9 @@ end)
 -- ESP FUNCTIONALITY WITH DISTANCE
 local function createESP(player)
     if player == LocalPlayer then return end
+    
+    -- Add team check for ESP
+    if Settings.UseTeamCheck and not enemy(player) then return end
 
     local function setupCharacter(character)
         if not character then return end
