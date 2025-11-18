@@ -1,4 +1,5 @@
---[[ getgenv().Aimbot = {
+--[[ 
+getgenv().Aimbot = {
     Enabled = false,
     UseTeamCheck = false,
     TargetPart = "Head",
