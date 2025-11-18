@@ -9,7 +9,6 @@ getgenv().Aimbot = {
     SpeedAndSmoothness = 8
 }
 
--- ESP SETTINGS (separate)
 getgenv().ESP = {
     Enabled = false
 }
