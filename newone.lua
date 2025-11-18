@@ -1,5 +1,4 @@
---[[
-getgenv().Aimbot = {
+-- [[getgenv().Aimbot = {
     Enabled = false,
     UseTeamCheck = false,
     TargetPart = "Head",
@@ -8,8 +7,7 @@ getgenv().Aimbot = {
     SpeedAndSmoothness = 8,
     ESP = false
 }
-loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/newone.lua"))()
-]]
+loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/newone.lua"))() ]]
 
 local Settings = getgenv().Aimbot
 
@@ -32,6 +30,16 @@ local function enemy(player)
     return true
 end
 
+-- VISIBILITY CHECK
+local function visible(part)
+    if not (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head")) then return false end
+    local origin = LocalPlayer.Character.Head.Position
+    local dir = part.Position - origin
+    local ray = Ray.new(origin, dir)
+    local hit = Workspace:FindPartOnRayWithIgnoreList(ray, {LocalPlayer.Character})
+    return hit and hit:IsDescendantOf(part.Parent)
+end
+
 -- TARGET SELECTION
 local function getTarget()
     if not LocalPlayer.Character then return end
@@ -46,7 +54,7 @@ local function getTarget()
         if plr ~= LocalPlayer and plr.Character then
             local hum = plr.Character:FindFirstChild("Humanoid")
             local part = plr.Character:FindFirstChild(Settings.TargetPart)
-            if hum and hum.Health > 0 and part and enemy(plr) then
+            if hum and hum.Health > 0 and part and enemy(plr) and visible(part) then
                 local dir = (part.Position - hrp.Position).Unit
                 local dot = dir:Dot(camLook)
                 if dot > bestDot and dot >= maxDot then
@@ -175,6 +183,7 @@ local function addESP(character, player)
     distLabel.Text = ""
     distLabel.Parent = billboard
 
+    -- UPDATE LOOP
     RunService.RenderStepped:Connect(function()
         if not Settings.ESP or not enemy(player) then
             highlight.Enabled = false
@@ -207,4 +216,4 @@ end
 for _, plr in ipairs(Players:GetPlayers()) do setupESP(plr) end
 Players.PlayerAdded:Connect(setupESP)
 
-print("Aimbot + ESP loaded with distances and team colors")
+print("it works i think")
