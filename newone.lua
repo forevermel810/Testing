@@ -1,4 +1,4 @@
--- [ [getgenv().Aimbot = {
+-- [[ getgenv().Aimbot = {
     Enabled = false,
     UseTeamCheck = false,
     TargetPart = "Head",
@@ -7,7 +7,7 @@
     SpeedAndSmoothness = 8,
     ESP = false
 }
-loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/newone.lua"))() ] ]
+loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/newone.lua"))() ]]
 
 local Settings = getgenv().Aimbot
 
