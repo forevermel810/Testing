@@ -11,7 +11,6 @@ getgenv().Aimbot = {
 }
 loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/Aimbottest.lua"))()
 ]]
-
 local Settings = getgenv().Aimbot
 
 -- SERVICES
@@ -22,7 +21,6 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local UIS = game:GetService("UserInputService")
 
--- CHECK IF PLAYER IS ENEMY
 local function enemy(player)
     if not Settings.UseTeamCheck then return true end
     if not player.Team then return true end
@@ -33,7 +31,6 @@ local function enemy(player)
     return true
 end
 
--- VISIBILITY CHECK
 local function visible(part)
     if not (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head")) then return false end
     local origin = LocalPlayer.Character.Head.Position
@@ -43,7 +40,6 @@ local function visible(part)
     return hit and hit:IsDescendantOf(part.Parent)
 end
 
--- GET TARGET FOR AIMBOT
 local function getTarget()
     if not LocalPlayer.Character then return end
     local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -72,7 +68,7 @@ local function getTarget()
     return best
 end
 
--- CAMERA LOCK LOOP
+-- CAMERA LOCK
 if getgenv().AimbotConnection then getgenv().AimbotConnection:Disconnect() end
 local smooth = Camera.CFrame
 getgenv().AimbotConnection = RunService.RenderStepped:Connect(function(dt)
@@ -164,37 +160,47 @@ local function addESP(character, player)
     billboard.Enabled = Settings.ESP
     billboard.Parent = character
 
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1,0,1,0)
-    label.BackgroundTransparency = 1
-    label.TextColor3 = highlight.FillColor
-    label.TextStrokeTransparency = 0.5
-    label.Font = Enum.Font.SourceSansLight
-    label.TextSize = 14
-    label.Parent = billboard
+    -- NAME LABEL
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(1,0,0.5,0)
+    nameLabel.Position = UDim2.new(0,0,0,0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.TextColor3 = highlight.FillColor
+    nameLabel.TextStrokeTransparency = 0.5
+    nameLabel.Font = Enum.Font.SourceSansLight
+    nameLabel.TextSize = 14
+    nameLabel.Text = player.Name
+    nameLabel.Parent = billboard
+
+    -- DISTANCE LABEL
+    local distLabel = Instance.new("TextLabel")
+    distLabel.Size = UDim2.new(1,0,0.5,0)
+    distLabel.Position = UDim2.new(0,0,0.5,0)
+    distLabel.BackgroundTransparency = 1
+    distLabel.TextColor3 = highlight.FillColor
+    distLabel.TextStrokeTransparency = 0.3
+    distLabel.Font = Enum.Font.GothamBold -- slightly thicker
+    distLabel.TextSize = 16
+    distLabel.Text = ""
+    distLabel.Parent = billboard
 
     -- UPDATE LOOP
     RunService.RenderStepped:Connect(function()
-        if not Settings.ESP then
-            highlight.Enabled = false
-            billboard.Enabled = false
-            return
-        end
-
-        if not enemy(player) then
+        if not Settings.ESP or not enemy(player) then
             highlight.Enabled = false
             billboard.Enabled = false
             return
         end
 
         highlight.FillColor = player.Team and player.Team.TeamColor.Color or Color3.fromRGB(255,0,0)
-        label.TextColor3 = highlight.FillColor
+        nameLabel.TextColor3 = highlight.FillColor
+        distLabel.TextColor3 = highlight.FillColor
 
         if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and character:FindFirstChild("HumanoidRootPart") then
             local root = LocalPlayer.Character.HumanoidRootPart
             local targetRoot = character.HumanoidRootPart
             local dist = (root.Position - targetRoot.Position).Magnitude
-            label.Text = player.Name .. " [" .. math.floor(dist) .. "]"
+            distLabel.Text = "["..math.floor(dist).." studs]"
         end
 
         highlight.Enabled = Settings.ESP
@@ -211,4 +217,4 @@ end
 for _, plr in ipairs(Players:GetPlayers()) do setupESP(plr) end
 Players.PlayerAdded:Connect(setupESP)
 
-print("it works i think")
+print("i think it works")
