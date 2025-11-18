@@ -1,14 +1,16 @@
--- [[ getgenv().Aimbot = {
-Enabled = false, 
-UseTeamCheck = false,
-UseVisibilityCheck = true, 
-TargetPart = "Head", 
-IgnoredTeams = {}, 
-MaxAngle = 120, 
-SpeedAndSmoothness = 8, 
-ESP = false 
-} 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/Aimbottest.lua"))() --
+--[[
+getgenv().Aimbot = {
+    Enabled = false,
+    UseTeamCheck = false,
+    UseVisibilityCheck = true,
+    TargetPart = "Head",
+    IgnoredTeams = {},
+    MaxAngle = 120,
+    SpeedAndSmoothness = 8,
+    ESP = false
+}
+loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/Aimbottest.lua"))()
+]]
 
 local Settings = getgenv().Aimbot
 
