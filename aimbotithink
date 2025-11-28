@@ -139,10 +139,10 @@ local function createBeam(targetPlayer)
     local attachment1 = Instance.new("Attachment")
     
     beam.Color = ColorSequence.new(Color3.fromRGB(0, 255, 100))
-    beam.Width0 = 0.3
-    beam.Width1 = 0.3
+    beam.Width0 = 0.15
+    beam.Width1 = 0.15
     beam.FaceCamera = true
-    beam.LightEmission = 0.5
+    beam.LightEmission = 1.5
     beam.LightInfluence = 0
     
     beam.Attachment0 = attachment0
