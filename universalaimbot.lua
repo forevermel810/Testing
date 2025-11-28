@@ -20,7 +20,7 @@ local Workspace = game:GetService("Workspace")
 local UIS = game:GetService("UserInputService")
 
 ---------------------------------------------------
--- TEAM CHECK
+-- TEAM CHECK (for aimbot)
 ---------------------------------------------------
 local function isEnemy(plr)
     if not Settings.UseTeamCheck then return true end
@@ -45,7 +45,7 @@ local function visible(part)
 end
 
 ---------------------------------------------------
--- GET TARGET
+-- GET TARGET (aimbot)
 ---------------------------------------------------
 local function getTarget()
     local char = LocalPlayer.Character
@@ -165,13 +165,13 @@ UIS.InputChanged:Connect(function(input)
 end)
 
 ---------------------------------------------------
--- TRACER SYSTEM FIXED
+-- TRACER SYSTEM (ignores team, respects MaxRange)
 ---------------------------------------------------
 if getgenv().TracerConnection then
     getgenv().TracerConnection:Disconnect()
 end
 
--- Remove all existing tracers
+-- Remove old tracers
 if getgenv().Tracers then
     for _, line in pairs(getgenv().Tracers) do
         if line and line.Remove then
@@ -180,7 +180,6 @@ if getgenv().Tracers then
     end
 end
 getgenv().Tracers = {}
-
 local tracers = getgenv().Tracers
 
 local function createTracer()
@@ -236,15 +235,13 @@ getgenv().TracerConnection = RunService.RenderStepped:Connect(function()
     local screenCenter = Vector2.new(viewport.X * 0.5, viewport.Y * 0.5)
 
     for _, p in pairs(Players:GetPlayers()) do
-        local tracer = tracers[p]
-
-        if p ~= LocalPlayer and isEnemy(p) then
+        if p ~= LocalPlayer then
             local c = p.Character
             local root = getRoot(c)
+            local tracer = tracers[p]
 
             if root then
                 local dist = (root.Position - localRoot.Position).Magnitude
-
                 if dist > Settings.MaxRange then
                     if tracer then tracer.Visible = false end
                     continue
@@ -273,8 +270,6 @@ getgenv().TracerConnection = RunService.RenderStepped:Connect(function()
             else
                 if tracer then tracer.Visible = false end
             end
-        else
-            if tracer then tracer.Visible = false end
         end
     end
 end)
