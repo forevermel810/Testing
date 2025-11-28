@@ -211,33 +211,34 @@ end
 for _, plr in ipairs(Players:GetPlayers()) do setupESP(plr) end  
 Players.PlayerAdded:Connect(setupESP)  
 
-local rangeSphere  
+-- RANGE HIGHLIGHT SPHERE
+local rangeSphere
 
-local function updateRangeSphere()  
-    if not Settings.ShowRange then  
-        if rangeSphere then rangeSphere.Enabled = false end  
-        return  
-    end  
+local function updateRangeSphere()
+    if not Settings.ShowRange then
+        if rangeSphere then rangeSphere.Visible = false end
+        return
+    end
 
-    local char = LocalPlayer.Character  
-    if not char then return end  
-    local root = char:FindFirstChild("HumanoidRootPart")  
-    if not root then return end  
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local hrp = char.HumanoidRootPart
 
-    if not rangeSphere then  
-        local sphere = Instance.new("SelectionSphere")  
-        sphere.Name = "AimbotRangeSphere"  
-        sphere.Color = BrickColor.new("Bright blue")  
-        sphere.Transparency = 0.5  
-        sphere.Parent = char  
-        rangeSphere = sphere  
-    end  
+    if not rangeSphere then
+        rangeSphere = Instance.new("SelectionSphere")
+        rangeSphere.Name = "AimbotRangeSphere"
+        rangeSphere.Adornee = hrp
+        rangeSphere.Color3 = Color3.fromRGB(150,150,255)
+        rangeSphere.SurfaceColor3 = rangeSphere.Color3
+        rangeSphere.LineThickness = 0.05
+        rangeSphere.Parent = hrp
+    end
 
-    rangeSphere.Adornee = root  
-    rangeSphere.Radius = Settings.MaxRange  
-    rangeSphere.Enabled = true  
-end  
+    -- set radius to match MaxRange
+    rangeSphere.Radius = Settings.MaxRange
+    rangeSphere.Visible = true
+end
 
-RunService.RenderStepped:Connect(updateRangeSphere)  
+RunService.RenderStepped:Connect(updateRangeSphere)
 
 print("i think it works")
