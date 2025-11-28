@@ -1,21 +1,20 @@
 --[[ 
 getgenv().Aimbot = {
-    Enabled = false, -- toggle aimbot
-    UseTeamCheck = false, -- ignore teammates
-    TargetPart = "Head", -- part you aim at
-    IgnoredTeams = {}, -- teams to skip
-    MaxAngle = 120, -- screen angle limit
-    SpeedAndSmoothness = 8, -- aim speed
-    ESP = false, -- tuff esp
-    MaxRange = 100, -- aimbot range in studs
-    ShowRange = true -- show circle that matches MaxRange
+    Enabled = false,
+    UseTeamCheck = false,
+    TargetPart = "Head",
+    IgnoredTeams = {},
+    MaxAngle = 120,
+    SpeedAndSmoothness = 8,
+    ESP = false,
+    MaxRange = 100,
+    ShowRange = true
 }
 loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/rica.lua"))()
 ]]
 
 local Settings = getgenv().Aimbot
 
--- SERVICES
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
@@ -23,7 +22,6 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local UIS = game:GetService("UserInputService")
 
--- CHECK ENEMY / TEAM
 local function enemy(player)
     if not Settings.UseTeamCheck then return true end
     if not player.Team then return true end
@@ -34,7 +32,6 @@ local function enemy(player)
     return true
 end
 
--- VISIBILITY CHECK
 local function visible(part)
     if not (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head")) then return false end
     local origin = LocalPlayer.Character.Head.Position
@@ -44,7 +41,6 @@ local function visible(part)
     return hit and hit:IsDescendantOf(part.Parent)
 end
 
--- TARGET SELECTION WITH RANGE
 local function getTarget()
     if not LocalPlayer.Character then return end
     local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -73,7 +69,6 @@ local function getTarget()
     return best
 end
 
--- CAMERA LOCK
 if getgenv().AimbotConnection then getgenv().AimbotConnection:Disconnect() end
 local smooth = Camera.CFrame
 getgenv().AimbotConnection = RunService.RenderStepped:Connect(function(dt)
@@ -88,7 +83,6 @@ getgenv().AimbotConnection = RunService.RenderStepped:Connect(function(dt)
     Camera.CFrame = smooth
 end)
 
--- GUI TOGGLE
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 if PlayerGui:FindFirstChild("AimbotUI") then PlayerGui.AimbotUI:Destroy() end
 local gui = Instance.new("ScreenGui", PlayerGui)
@@ -113,7 +107,6 @@ toggle.MouseButton1Click:Connect(function()
     toggle.Text = "AIMBOT: "..(Settings.Enabled and "ON" or "OFF")
 end)
 
--- DRAGGING
 local dragging = false
 local offset = Vector2.new()
 local drag = Instance.new("Frame", toggle)
@@ -137,7 +130,6 @@ UIS.InputChanged:Connect(function(input)
     end
 end)
 
--- ESP FUNCTION
 local function addESP(character, player)
     if character:FindFirstChild("ESP_Highlight") then character.ESP_Highlight:Destroy() end
     if character:FindFirstChild("ESP_Billboard") then character.ESP_Billboard:Destroy() end
@@ -165,7 +157,6 @@ local function addESP(character, player)
     billboard.Enabled = Settings.ESP
     billboard.Parent = character
 
-    -- NAME LABEL
     local nameLabel = Instance.new("TextLabel")
     nameLabel.Size = UDim2.new(1,0,0.5,0)
     nameLabel.Position = UDim2.new(0,0,0,0)
@@ -177,7 +168,6 @@ local function addESP(character, player)
     nameLabel.Text = player.Name
     nameLabel.Parent = billboard
 
-    -- DISTANCE LABEL
     local distLabel = Instance.new("TextLabel")
     distLabel.Size = UDim2.new(1,0,0.5,0)
     distLabel.Position = UDim2.new(0,0,0.5,0)
@@ -189,7 +179,6 @@ local function addESP(character, player)
     distLabel.Text = ""
     distLabel.Parent = billboard
 
-    -- UPDATE LOOP
     RunService.RenderStepped:Connect(function()
         if not Settings.ESP or not enemy(player) then
             highlight.Enabled = false
@@ -222,11 +211,10 @@ end
 for _, plr in ipairs(Players:GetPlayers()) do setupESP(plr) end
 Players.PlayerAdded:Connect(setupESP)
 
--- RANGE SPHERE
 local rangeSphere
 
 local function updateRangeSphere()
-    if not Settings.ShowRangeCircle then
+    if not Settings.ShowRange then
         if rangeSphere then rangeSphere.Visible = false end
         return
     end
