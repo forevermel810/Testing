@@ -22,7 +22,7 @@ local UIS = game:GetService("UserInputService")
 ---------------------------------------------------
 -- TEAM CHECK
 ---------------------------------------------------
-local function enemy(plr)
+local function isEnemy(plr)
     if not Settings.UseTeamCheck then return true end
     if not plr.Team then return true end
     if plr.Team == LocalPlayer.Team then return false end
@@ -59,7 +59,7 @@ local function getTarget()
     local maxDot = math.cos(math.rad(Settings.MaxAngle))
 
     for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Character and enemy(plr) then
+        if plr ~= LocalPlayer and plr.Character and isEnemy(plr) then
             local hum = plr.Character:FindFirstChild("Humanoid")
             local part = plr.Character:FindFirstChild(Settings.TargetPart)
             if hum and hum.Health > 0 and part and visible(part) then
@@ -167,7 +167,6 @@ end)
 ---------------------------------------------------
 -- TRACER SYSTEM
 ---------------------------------------------------
-
 if getgenv().TracerConnection then
     getgenv().TracerConnection:Disconnect()
 end
@@ -185,16 +184,6 @@ end
 
 local function getRoot(c)
     return c and c:FindFirstChild("HumanoidRootPart")
-end
-
-local function enemyTracer(plr)
-    if not Settings.UseTeamCheck then return true end
-    if not plr.Team then return true end
-    if plr.Team == LocalPlayer.Team then return false end
-    for _, t in ipairs(Settings.IgnoredTeams) do
-        if plr.Team.Name == t then return false end
-    end
-    return true
 end
 
 Players.PlayerRemoving:Connect(function(p)
@@ -244,7 +233,7 @@ getgenv().TracerConnection = RunService.RenderStepped:Connect(function()
     local screenCenter = Vector2.new(viewport.X * 0.5, viewport.Y * 0.5)
 
     for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and enemyTracer(p) then
+        if p ~= LocalPlayer and isEnemy(p) then
             local c = p.Character
             local root = getRoot(c)
 
