@@ -10,7 +10,7 @@ getgenv().Aimbot = {
     MaxRange = 100, -- aimbot range  
     ShowRange = true -- show range  
 }  
-loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/rica.lua"))()  
+loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/aimbot"))()  
 ]]  
 
 local Settings = getgenv().Aimbot  
