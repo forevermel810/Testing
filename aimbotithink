@@ -142,7 +142,7 @@ local function createBeam(targetPlayer)
     beam.Width0 = 0.15
     beam.Width1 = 0.15
     beam.FaceCamera = true
-    beam.LightEmission = 5
+    beam.LightEmission = 100
     beam.LightInfluence = 0
     
     beam.Attachment0 = attachment0
