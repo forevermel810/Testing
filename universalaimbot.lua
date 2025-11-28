@@ -3,14 +3,14 @@ getgenv().Aimbot = {
     Enabled = false,
     UseTeamCheck = false,
     TargetPart = "Head",
-    IgnoredTeams = {},
+    IgnoredTeams = {"Criminals"},
     MaxAngle = 120,
     SpeedAndSmoothness = 8,
-    ESP = false,
-    MaxRange = 100
+    ESP = true,
+    MaxRange = 1000
 }
 loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/universalaimbot.lua"))()
-]]
+]]--
 local Settings = getgenv().Aimbot
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -19,9 +19,6 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local UIS = game:GetService("UserInputService")
 
----------------------------------------------------
--- TEAM CHECK (for aimbot)
----------------------------------------------------
 local function isEnemy(plr)
     if not Settings.UseTeamCheck then return true end
     if not plr.Team then return true end
@@ -32,9 +29,10 @@ local function isEnemy(plr)
     return true
 end
 
----------------------------------------------------
--- VISIBILITY CHECK
----------------------------------------------------
+local function getRoot(c)
+    return c and c:FindFirstChild("HumanoidRootPart")
+end
+
 local function visible(part)
     if not (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head")) then return false end
     local origin = LocalPlayer.Character.Head.Position
@@ -44,9 +42,6 @@ local function visible(part)
     return hit and hit:IsDescendantOf(part.Parent)
 end
 
----------------------------------------------------
--- GET TARGET (aimbot)
----------------------------------------------------
 local function getTarget()
     local char = LocalPlayer.Character
     if not char then return end
@@ -78,9 +73,6 @@ local function getTarget()
     return best
 end
 
----------------------------------------------------
--- AIMBOT LOOP
----------------------------------------------------
 if getgenv().AimbotConnection then
     getgenv().AimbotConnection:Disconnect()
 end
@@ -99,9 +91,6 @@ getgenv().AimbotConnection = RunService.RenderStepped:Connect(function(dt)
     Camera.CFrame = smooth
 end)
 
----------------------------------------------------
--- GUI BUTTON
----------------------------------------------------
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 if PlayerGui:FindFirstChild("AimbotUI") then PlayerGui.AimbotUI:Destroy() end
 
@@ -124,19 +113,14 @@ corner.CornerRadius = UDim.new(0,24)
 toggle.MouseEnter:Connect(function()
     toggle.BackgroundColor3 = Color3.fromRGB(55,55,55)
 end)
-
 toggle.MouseLeave:Connect(function()
     toggle.BackgroundColor3 = Color3.fromRGB(35,35,35)
 end)
-
 toggle.MouseButton1Click:Connect(function()
     Settings.Enabled = not Settings.Enabled
     toggle.Text = Settings.Enabled and "AIMBOT ON" or "AIMBOT OFF"
 end)
 
----------------------------------------------------
--- DRAGGING
----------------------------------------------------
 local dragging = false
 local offset = Vector2.new()
 
@@ -150,13 +134,11 @@ drag.InputBegan:Connect(function(input)
         offset = UIS:GetMouseLocation() - toggle.AbsolutePosition
     end
 end)
-
 drag.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         dragging = false
     end
 end)
-
 UIS.InputChanged:Connect(function(input)
     if dragging then
         local pos = UIS:GetMouseLocation() - offset
@@ -164,111 +146,136 @@ UIS.InputChanged:Connect(function(input)
     end
 end)
 
----------------------------------------------------
--- TRACER SYSTEM (ignores team, respects MaxRange)
----------------------------------------------------
 if getgenv().TracerConnection then
     getgenv().TracerConnection:Disconnect()
 end
 
--- Remove old tracers
 if getgenv().Tracers then
-    for _, line in pairs(getgenv().Tracers) do
-        if line and line.Remove then
-            line:Remove()
-        end
+    for _, v in pairs(getgenv().Tracers) do
+        if v.Line and v.Line.Remove then v.Line:Remove() end
+        if v.Box and v.Box.Remove then v.Box:Remove() end
+        if v.NameTag and v.NameTag.Remove then v.NameTag:Remove() end
+        if v.Distance and v.Distance.Remove then v.Distance:Remove() end
     end
 end
 getgenv().Tracers = {}
 local tracers = getgenv().Tracers
 
-local function createTracer()
+local function createESP()
     local line = Drawing.new("Line")
     line.Thickness = 1
     line.Transparency = 1
-    line.Color = Color3.fromRGB(0,255,0)
     line.Visible = false
-    return line
-end
 
-local function getRoot(c)
-    return c and c:FindFirstChild("HumanoidRootPart")
+    local box = Drawing.new("Square")
+    box.Thickness = 1
+    box.Transparency = 1
+    box.Visible = false
+
+    local nameTag = Drawing.new("Text")
+    nameTag.Size = 16
+    nameTag.Center = true
+    nameTag.Outline = true
+    nameTag.Visible = false
+
+    local distanceTag = Drawing.new("Text")
+    distanceTag.Size = 16
+    distanceTag.Center = true
+    distanceTag.Outline = true
+    distanceTag.Visible = false
+
+    return {Line=line, Box=box, NameTag=nameTag, Distance=distanceTag}
 end
 
 local function trackCharacter(p)
-    local c = p.Character
-    if not c then return end
-    local h = c:FindFirstChildOfClass("Humanoid")
-    if h then
-        h.Died:Connect(function()
-            if tracers[p] then
-                tracers[p]:Remove()
-                tracers[p] = nil
-            end
-        end)
-    end
-    c.AncestryChanged:Connect(function(_, parent)
-        if not parent and tracers[p] then
-            tracers[p]:Remove()
-            tracers[p] = nil
+    local function setup()
+        local c = p.Character
+        if not c then return end
+        if not tracers[p] then
+            tracers[p] = createESP()
         end
-    end)
-end
-
-Players.PlayerAdded:Connect(function(p)
-    p.CharacterAdded:Connect(function()
-        trackCharacter(p)
-    end)
-end)
-
-for _, p in pairs(Players:GetPlayers()) do
-    if p.Character then
-        trackCharacter(p)
     end
+    p.CharacterAdded:Connect(setup)
+    setup()
 end
 
-getgenv().TracerConnection = RunService.RenderStepped:Connect(function()
+Players.PlayerAdded:Connect(trackCharacter)
+for _, p in pairs(Players:GetPlayers()) do
+    trackCharacter(p)
+end
+
+getgenv().TracerConnection = RunService.Heartbeat:Connect(function()
     local localRoot = getRoot(LocalPlayer.Character)
     if not localRoot then return end
-
     local viewport = Camera.ViewportSize
-    local screenCenter = Vector2.new(viewport.X * 0.5, viewport.Y * 0.5)
+    local screenCenter = Vector2.new(viewport.X*0.5, viewport.Y*0.5)
 
     for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer then
-            local c = p.Character
-            local root = getRoot(c)
+        if p ~= LocalPlayer and p.Character then
+            local root = getRoot(p.Character)
             local tracer = tracers[p]
 
-            if root then
-                local dist = (root.Position - localRoot.Position).Magnitude
-                if dist > Settings.MaxRange then
-                    if tracer then tracer.Visible = false end
-                    continue
-                end
+            if not tracer then
+                tracer = createESP()
+                tracers[p] = tracer
+            end
 
-                if not tracer then
-                    tracer = createTracer()
-                    tracers[p] = tracer
-                end
+            if not Settings.ESP then
+                for _, v in pairs(tracer) do v.Visible = false end
+                continue
+            end
 
-                local pos, onScreen = Camera:WorldToViewportPoint(root.Position)
-                local camDir = Camera.CFrame.LookVector
-                local toTarget = (root.Position - Camera.CFrame.Position).Unit
-                local dot = toTarget:Dot(camDir)
-
-                if dot > 0.95 or not onScreen then
-                    tracer.Visible = false
-                else
-                    tracer.Visible = true
-                    tracer.From = screenCenter
-                    tracer.To = Vector2.new(pos.X, pos.Y)
-                    local r = math.clamp(255 - dist, 0, 255)
-                    local g = math.clamp(dist, 0, 255)
-                    tracer.Color = Color3.fromRGB(r, g, 0)
+            local ignoreTeam = false
+            for _, t in ipairs(Settings.IgnoredTeams) do
+                if p.Team and p.Team.Name == t then
+                    ignoreTeam = true
+                    break
                 end
+            end
+
+            local isSameTeam = p.Team and LocalPlayer.Team and p.Team == LocalPlayer.Team
+
+            local color
+            if ignoreTeam then
+                color = Color3.fromRGB(255,255,255)
+            elseif isSameTeam then
+                color = Color3.fromRGB(0,140,255)
             else
-                if tracer then tracer.Visible = false end
+                color = Color3.fromRGB(255,0,0)
+            end
+
+            if not root or (root.Position - localRoot.Position).Magnitude > Settings.MaxRange then
+                for _, v in pairs(tracer) do v.Visible = false end
+                continue
+            end
+
+            local pos, onScreen = Camera:WorldToViewportPoint(root.Position)
+            if not onScreen then
+                for _, v in pairs(tracer) do v.Visible = false end
+            else
+                local dist = math.floor((root.Position - localRoot.Position).Magnitude)
+
+                tracer.Line.Color = color
+                tracer.Box.Color = color
+                tracer.NameTag.Color = color
+                tracer.Distance.Color = color
+
+                tracer.Line.From = screenCenter
+                tracer.Line.To = Vector2.new(pos.X, pos.Y)
+                tracer.Line.Visible = true
+
+                local size = 30
+                tracer.Box.Position = Vector2.new(pos.X - size * 0.5, pos.Y - size * 0.5)
+                tracer.Box.Size = Vector2.new(size, size)
+                tracer.Box.Visible = true
+
+                tracer.NameTag.Text = p.Name
+                tracer.NameTag.Position = Vector2.new(pos.X, pos.Y - 25)
+                tracer.NameTag.Visible = true
+
+                tracer.Distance.Text = dist.."m"
+                tracer.Distance.Position = Vector2.new(pos.X, pos.Y + 25)
+                tracer.Distance.Visible = true
             end
         end
     end
