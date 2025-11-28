@@ -6,7 +6,7 @@ getgenv().Aimbot = {
     IgnoredTeams = {}, -- teams to skip
     MaxAngle = 120, -- screen angle limit
     SpeedAndSmoothness = 8, -- aim speed
-    ESP = false, -- outline players
+    ESP = false, -- tuff esp
     MaxRange = 100, -- aimbot range in studs
     ShowRangeCircle = true -- show circle that matches MaxRange
 }
