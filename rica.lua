@@ -8,7 +8,7 @@ getgenv().Aimbot = {
     SpeedAndSmoothness = 8, -- aim speed
     ESP = false, -- tuff esp
     MaxRange = 100, -- aimbot range in studs
-    ShowRangeCircle = true -- show circle that matches MaxRange
+    ShowRange = true -- show circle that matches MaxRange
 }
 loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/rica.lua"))()
 ]]
@@ -222,30 +222,36 @@ end
 for _, plr in ipairs(Players:GetPlayers()) do setupESP(plr) end
 Players.PlayerAdded:Connect(setupESP)
 
--- RANGE CIRCLE
-local circle
-local function createRangeCircle()
-    if circle then circle:Destroy() end
-    if not Settings.ShowRangeCircle then return end
+-- RANGE SPHERE
+local rangeSphere
 
-    circle = Instance.new("Part")
-    circle.Name = "AimbotRangeCircle"
-    circle.Anchored = true
-    circle.CanCollide = false
-    circle.Size = Vector3.new(Settings.MaxRange*2, 0.1, Settings.MaxRange*2)
-    circle.Transparency = 0.5
-    circle.Color = Color3.fromRGB(255,0,0)
-    circle.Material = Enum.Material.Neon
-    circle.Parent = workspace
+local function updateRangeSphere()
+    if not Settings.ShowRangeCircle then
+        if rangeSphere then rangeSphere.Visible = false end
+        return
+    end
 
-    RunService.RenderStepped:Connect(function()
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            circle.Position = LocalPlayer.Character.HumanoidRootPart.Position + Vector3.new(0,0.1,0)
-        end
-        circle.Visible = Settings.ShowRangeCircle
-    end)
+    if not rangeSphere then
+        rangeSphere = Instance.new("Part")
+        rangeSphere.Name = "AimbotRangeSphere"
+        rangeSphere.Shape = Enum.PartType.Ball
+        rangeSphere.Anchored = true
+        rangeSphere.CanCollide = false
+        rangeSphere.Transparency = 0.7
+        rangeSphere.Color = Color3.fromRGB(150,150,255)
+        rangeSphere.Material = Enum.Material.Neon
+        rangeSphere.Parent = workspace
+    end
+
+    rangeSphere.Size = Vector3.new(Settings.MaxRange*2, Settings.MaxRange*2, Settings.MaxRange*2)
+    rangeSphere.Visible = true
+
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        rangeSphere.Position = char.HumanoidRootPart.Position
+    end
 end
 
-createRangeCircle()
+RunService.RenderStepped:Connect(updateRangeSphere)
 
 print("i think it works")
