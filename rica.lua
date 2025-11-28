@@ -1,14 +1,14 @@
 --[[ 
 getgenv().Aimbot = {
-    Enabled = false, -- do not true this
-    UseTeamCheck = false,-- team check
-    TargetPart = "Head", -- target body parts usually its head or humanoidrootpart
-    IgnoredTeams = {}, -- ignored teams
-    MaxAngle = 120, -- how big is the range in your screen
-    SpeedAndSmoothness = 8,-- the travel speed to the target distance
-    ESP = false, -- esp i think
-    MaxRange = 100, -- range
-    ShowRangeCircle = true -- determining on how big is the range of your aimbot
+    Enabled = false, -- toggle aimbot
+    UseTeamCheck = false, -- ignore teammates
+    TargetPart = "Head", -- part you aim at
+    IgnoredTeams = {}, -- teams to skip
+    MaxAngle = 120, -- screen angle limit
+    SpeedAndSmoothness = 8, -- aim speed
+    ESP = false, -- outline players
+    MaxRange = 100, -- aimbot range in studs
+    ShowRangeCircle = true -- show circle that matches MaxRange
 }
 loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/rica.lua"))()
 ]]
