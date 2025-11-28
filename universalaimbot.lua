@@ -165,13 +165,23 @@ UIS.InputChanged:Connect(function(input)
 end)
 
 ---------------------------------------------------
--- TRACER SYSTEM
+-- TRACER SYSTEM FIXED
 ---------------------------------------------------
 if getgenv().TracerConnection then
     getgenv().TracerConnection:Disconnect()
 end
 
-local tracers = {}
+-- Remove all existing tracers
+if getgenv().Tracers then
+    for _, line in pairs(getgenv().Tracers) do
+        if line and line.Remove then
+            line:Remove()
+        end
+    end
+end
+getgenv().Tracers = {}
+
+local tracers = getgenv().Tracers
 
 local function createTracer()
     local line = Drawing.new("Line")
@@ -185,13 +195,6 @@ end
 local function getRoot(c)
     return c and c:FindFirstChild("HumanoidRootPart")
 end
-
-Players.PlayerRemoving:Connect(function(p)
-    if tracers[p] then
-        tracers[p]:Remove()
-        tracers[p] = nil
-    end
-end)
 
 local function trackCharacter(p)
     local c = p.Character
@@ -233,6 +236,8 @@ getgenv().TracerConnection = RunService.RenderStepped:Connect(function()
     local screenCenter = Vector2.new(viewport.X * 0.5, viewport.Y * 0.5)
 
     for _, p in pairs(Players:GetPlayers()) do
+        local tracer = tracers[p]
+
         if p ~= LocalPlayer and isEnemy(p) then
             local c = p.Character
             local root = getRoot(c)
@@ -241,41 +246,35 @@ getgenv().TracerConnection = RunService.RenderStepped:Connect(function()
                 local dist = (root.Position - localRoot.Position).Magnitude
 
                 if dist > Settings.MaxRange then
-                    if tracers[p] then tracers[p].Visible = false end
+                    if tracer then tracer.Visible = false end
                     continue
                 end
 
-                if not tracers[p] then
-                    tracers[p] = createTracer()
+                if not tracer then
+                    tracer = createTracer()
+                    tracers[p] = tracer
                 end
 
-                local tracer = tracers[p]
                 local pos, onScreen = Camera:WorldToViewportPoint(root.Position)
-
                 local camDir = Camera.CFrame.LookVector
                 local toTarget = (root.Position - Camera.CFrame.Position).Unit
                 local dot = toTarget:Dot(camDir)
 
-                if dot > 0.95 then
+                if dot > 0.95 or not onScreen then
                     tracer.Visible = false
                 else
-                    if onScreen then
-                        tracer.Visible = true
-                        tracer.From = screenCenter
-                        tracer.To = Vector2.new(pos.X, pos.Y)
-
-                        local r = math.clamp(255 - dist, 0, 255)
-                        local g = math.clamp(dist, 0, 255)
-                        tracer.Color = Color3.fromRGB(r, g, 0)
-                    else
-                        tracer.Visible = false
-                    end
+                    tracer.Visible = true
+                    tracer.From = screenCenter
+                    tracer.To = Vector2.new(pos.X, pos.Y)
+                    local r = math.clamp(255 - dist, 0, 255)
+                    local g = math.clamp(dist, 0, 255)
+                    tracer.Color = Color3.fromRGB(r, g, 0)
                 end
             else
-                if tracers[p] then tracers[p].Visible = false end
+                if tracer then tracer.Visible = false end
             end
         else
-            if tracers[p] then tracers[p].Visible = false end
+            if tracer then tracer.Visible = false end
         end
     end
 end)
