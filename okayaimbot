@@ -1,0 +1,481 @@
+--[[   
+getgenv().Aimbot = {  
+    Enabled = false, -- toggle aimbot  
+    UseTeamCheck = false, -- ignore teammates  
+    TargetPart = "Head", -- part you aim at usually they are head or humanoidrootpart   
+    IgnoredTeams = {}, -- teams you skip  
+    MaxAngle = 120, -- screen angle limit  
+    SpeedAndSmoothness = 8, -- aim speed  
+    ESP = false, -- tuff esp  
+    MaxRange = 100, -- aimbot range  
+    ShowRange = true -- show range  
+}
+loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/aimbotithink"))()  
+]]  
+
+local Settings = getgenv().Aimbot  
+
+local Players = game:GetService("Players")  
+local LocalPlayer = Players.LocalPlayer  
+local Camera = workspace.CurrentCamera  
+local RunService = game:GetService("RunService")  
+local Workspace = game:GetService("Workspace")  
+local UIS = game:GetService("UserInputService")  
+
+-- Character safety checks
+local function getLocalCharacter()
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+        return char
+    end
+    return nil
+end
+
+local function getCharacterPart(character, partName)
+    if character and character:FindFirstChild(partName) then
+        return character[partName]
+    end
+    return nil
+end
+
+local function enemy(player)  
+    if not Settings.UseTeamCheck then return true end  
+    if not player.Team then return true end  
+    if player.Team == LocalPlayer.Team then return false end  
+    for _, name in ipairs(Settings.IgnoredTeams) do  
+        if player.Team.Name == name then return false end  
+    end  
+    return true  
+end  
+
+local function visible(part, character)  
+    local localChar = getLocalCharacter()
+    local head = getCharacterPart(localChar, "Head")
+    if not head then return false end
+
+    local origin = head.Position  
+    local dir = (part.Position - origin).Unit * Settings.MaxRange
+    local rayParams = RaycastParams.new()
+    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+    rayParams.FilterDescendantsInstances = {localChar}
+    local raycastResult = Workspace:Raycast(origin, dir, rayParams)
+    return raycastResult and raycastResult.Instance:IsDescendantOf(character)
+end  
+
+local currentTarget = nil
+local lastTargetCheck = 0
+local targetRefreshRate = 0.1
+
+local function getTarget()  
+    local now = tick()
+    if now - lastTargetCheck < targetRefreshRate then return currentTarget end
+    lastTargetCheck = now
+
+    local localChar = getLocalCharacter()
+    local hrp = getCharacterPart(localChar, "HumanoidRootPart")
+    if not hrp then 
+        currentTarget = nil
+        return 
+    end  
+
+    local best, bestDot = nil, -1  
+    local maxDot = math.cos(math.rad(Settings.MaxAngle))  
+
+    for _, plr in pairs(Players:GetPlayers()) do  
+        if plr ~= LocalPlayer and plr.Character then  
+            local character = plr.Character
+            local hum = character:FindFirstChildOfClass("Humanoid")  
+            local part = character:FindFirstChild(Settings.TargetPart)  
+            if hum and hum.Health > 0 and part and enemy(plr) and visible(part, character) then  
+                local dist = (part.Position - hrp.Position).Magnitude  
+                if dist <= Settings.MaxRange then  
+                    local dir = (part.Position - hrp.Position).Unit  
+                    local dot = dir:Dot(Camera.CFrame.LookVector)  
+                    if dot > bestDot and dot >= maxDot then  
+                        bestDot = dot  
+                        best = part  
+                    end  
+                end  
+            end  
+        end  
+    end  
+    currentTarget = best
+    return best  
+end  
+
+-- Clean up old connections
+if getgenv().AimbotConnections then
+    for _, conn in pairs(getgenv().AimbotConnections) do
+        conn:Disconnect()
+    end
+end
+
+getgenv().AimbotConnections = {}
+
+-- Smooth aiming with character safety
+local function smoothAim(dt)
+    local target = getTarget()
+    local current = Camera.CFrame
+
+    if Settings.Enabled and target and getLocalCharacter() then
+        local direction = (target.Position - current.Position)
+        local goal = CFrame.lookAt(current.Position, current.Position + direction)
+        Camera.CFrame = current:Lerp(goal, math.min(Settings.SpeedAndSmoothness * dt, 0.3))
+    end
+end
+
+local aimbotConnection = RunService.Heartbeat:Connect(smoothAim)
+table.insert(getgenv().AimbotConnections, aimbotConnection)
+
+-- BEAM SYSTEM (RED GLOWING BEAMS)
+local playerBeams = {}
+local beamConnections = {}
+
+local function removeBeam(targetPlayer)
+    if playerBeams[targetPlayer] then
+        playerBeams[targetPlayer].Beam:Destroy()
+        playerBeams[targetPlayer].Attachment0:Destroy()
+        playerBeams[targetPlayer].Attachment1:Destroy()
+        if playerBeams[targetPlayer].PointLight then
+            playerBeams[targetPlayer].PointLight:Destroy()
+        end
+        playerBeams[targetPlayer] = nil
+    end
+    if beamConnections[targetPlayer] then
+        beamConnections[targetPlayer]:Disconnect()
+        beamConnections[targetPlayer] = nil
+    end
+end
+
+local function createBeam(targetPlayer)
+    if playerBeams[targetPlayer] then return end
+
+    local beam = Instance.new("Beam")
+    local attachment0 = Instance.new("Attachment")
+    local attachment1 = Instance.new("Attachment")
+
+    beam.Color = ColorSequence.new(Color3.fromRGB(255, 0, 0))  -- RED color
+    beam.Width0 = 0.1
+    beam.Width1 = 0.1
+    beam.FaceCamera = true
+    beam.LightEmission = 1
+    beam.LightInfluence = 0
+    beam.Transparency = NumberSequence.new(0)
+
+    -- ADD GLOW EFFECT:
+    beam.Texture = "rbxasset://textures/beam.png"  -- Glow texture
+    beam.TextureSpeed = 1.0  -- Slow glow movement
+    beam.TextureLength = 1.0  -- Smooth glow along beam
+
+    beam.Attachment0 = attachment0
+    beam.Attachment1 = attachment1
+    beam.Parent = workspace
+
+    -- ADD POINT LIGHT FOR EXTRA GLOW:
+    local pointLight = Instance.new("PointLight")
+    pointLight.Brightness = 5
+    pointLight.Range = 10
+    pointLight.Color = Color3.fromRGB(255, 0, 0)
+    pointLight.Parent = attachment0
+
+    playerBeams[targetPlayer] = {
+        Beam = beam,
+        Attachment0 = attachment0,
+        Attachment1 = attachment1,
+        PointLight = pointLight  -- Store for cleanup
+    }
+end
+
+local function updateBeams()
+    if not Settings.ShowRange then
+        -- Remove all beams if range showing is disabled
+        for player in pairs(playerBeams) do
+            removeBeam(player)
+        end
+        return
+    end
+
+    local localChar = getLocalCharacter()
+    local localHrp = getCharacterPart(localChar, "HumanoidRootPart")
+    if not localHrp then
+        -- Remove all beams if no character
+        for player in pairs(playerBeams) do
+            removeBeam(player)
+        end
+        return
+    end
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local targetChar = player.Character
+            local targetHrp = getCharacterPart(targetChar, "HumanoidRootPart")
+            local humanoid = targetChar:FindFirstChildOfClass("Humanoid")
+
+            if targetHrp and humanoid and humanoid.Health > 0 and enemy(player) then
+                local distance = (targetHrp.Position - localHrp.Position).Magnitude
+
+                if distance <= Settings.MaxRange then
+                    -- Player in range - create/update beam
+                    if not playerBeams[player] then
+                        createBeam(player)
+                    end
+
+                    -- Update beam positions
+                    if playerBeams[player] then
+                        playerBeams[player].Attachment0.Parent = localHrp
+                        playerBeams[player].Attachment1.Parent = targetHrp
+                        playerBeams[player].Attachment0.Position = Vector3.new(0, 0, 0)
+                        playerBeams[player].Attachment1.Position = Vector3.new(0, 0, 0)
+
+                        -- Change beam intensity based on distance (brighter when closer)
+                        local ratio = distance / Settings.MaxRange
+                        local intensity = 1 - ratio  -- Brighter when closer
+                        playerBeams[player].Beam.Width0 = 0.05 + (0.1 * intensity)
+                        playerBeams[player].Beam.Width1 = 0.05 + (0.1 * intensity)
+                        
+                        if playerBeams[player].PointLight then
+                            playerBeams[player].PointLight.Brightness = 2 + (3 * intensity)
+                        end
+                    end
+                else
+                    -- Player out of range - remove beam
+                    removeBeam(player)
+                end
+            else
+                -- Player dead or not valid - remove beam
+                removeBeam(player)
+            end
+        else
+            -- Player left or local player - remove beam
+            removeBeam(player)
+        end
+    end
+end
+
+-- Connect beam system
+local beamUpdateConnection = RunService.Heartbeat:Connect(updateBeams)
+table.insert(getgenv().AimbotConnections, beamUpdateConnection)
+
+-- Cleanup beams when players leave
+local playerRemovedConnection = Players.PlayerRemoving:Connect(function(player)
+    removeBeam(player)
+end)
+table.insert(getgenv().AimbotConnections, playerRemovedConnection)
+
+-- UI Setup
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")  
+if PlayerGui:FindFirstChild("AimbotUI") then PlayerGui.AimbotUI:Destroy() end  
+
+local gui = Instance.new("ScreenGui")  
+gui.Name = "AimbotUI"  
+gui.ResetOnSpawn = false  
+gui.Parent = PlayerGui
+
+local toggle = Instance.new("TextButton")  
+toggle.Size = UDim2.new(0,180,0,60)  
+toggle.Position = UDim2.new(1,-200,0,100)  
+toggle.Text = "AIMBOT: OFF"  
+toggle.Font = Enum.Font.SourceSansLight  
+toggle.TextSize = 22  
+toggle.BackgroundColor3 = Color3.fromRGB(35,35,35)  
+toggle.TextColor3 = Color3.fromRGB(200,200,200)  
+toggle.Parent = gui
+
+local corner = Instance.new("UICorner")  
+corner.CornerRadius = UDim.new(0,24)  
+corner.Parent = toggle
+
+-- UI Interactions
+toggle.MouseEnter:Connect(function() toggle.BackgroundColor3 = Color3.fromRGB(55,55,55) end)  
+toggle.MouseLeave:Connect(function() toggle.BackgroundColor3 = Color3.fromRGB(35,35,35) end)  
+toggle.MouseButton1Click:Connect(function()  
+    Settings.Enabled = not Settings.Enabled  
+    toggle.Text = "AIMBOT: "..(Settings.Enabled and "ON" or "OFF")  
+end)  
+
+local dragging = false  
+local offset = Vector2.new()  
+local drag = Instance.new("Frame")  
+drag.Size = UDim2.new(1,0,0,30)  
+drag.BackgroundTransparency = 1  
+drag.Parent = toggle
+
+local function updateUIPosition(mousePos)
+    local newPos = mousePos - offset
+    local viewportSize = Camera.ViewportSize
+    newPos = Vector2.new(
+        math.clamp(newPos.X, 0, viewportSize.X - toggle.AbsoluteSize.X),
+        math.clamp(newPos.Y, 0, viewportSize.Y - toggle.AbsoluteSize.Y)
+    )
+    toggle.Position = UDim2.new(0, newPos.X, 0, newPos.Y)
+end
+
+drag.InputBegan:Connect(function(input)  
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then  
+        dragging = true  
+        offset = UIS:GetMouseLocation() - toggle.AbsolutePosition  
+    end  
+end)  
+
+drag.InputEnded:Connect(function(input)  
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then  
+        dragging = false  
+    end  
+end)  
+
+local dragConnection = UIS.InputChanged:Connect(function(input)  
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then  
+        updateUIPosition(input.Position)  
+    end  
+end)  
+table.insert(getgenv().AimbotConnections, dragConnection)
+
+-- ESP System with character safety
+local characterConnections = {}
+
+local function cleanESP(character)
+    if characterConnections[character] then
+        characterConnections[character]:Disconnect()
+        characterConnections[character] = nil
+    end
+    if character:FindFirstChild("ESP_Highlight") then 
+        character.ESP_Highlight:Destroy() 
+    end
+    if character:FindFirstChild("ESP_Billboard") then 
+        character.ESP_Billboard:Destroy() 
+    end
+end
+
+local function addESP(character, player)
+    cleanESP(character)
+
+    local head = character:FindFirstChild("Head")
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not head or not humanoid then return end
+
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "ESP_Highlight"
+    highlight.FillColor = player.Team and player.Team.TeamColor.Color or Color3.fromRGB(255,0,0)
+    highlight.OutlineColor = Color3.fromRGB(255,255,255)
+    highlight.FillTransparency = 0.5
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Adornee = character
+    highlight.Enabled = Settings.ESP
+    highlight.Parent = character
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "ESP_Billboard"
+    billboard.Size = UDim2.new(0,200,0,50)
+    billboard.StudsOffset = Vector3.new(0,3,0)
+    billboard.AlwaysOnTop = true
+    billboard.Adornee = head
+    billboard.Enabled = Settings.ESP
+    billboard.Parent = character
+
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(1,0,0.5,0)
+    nameLabel.Position = UDim2.new(0,0,0,0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.TextColor3 = highlight.FillColor
+    nameLabel.TextStrokeTransparency = 0.5
+    nameLabel.Font = Enum.Font.SourceSansLight
+    nameLabel.TextSize = 14
+    nameLabel.Text = player.Name
+    nameLabel.Parent = billboard
+
+    local distLabel = Instance.new("TextLabel")
+    distLabel.Size = UDim2.new(1,0,0.5,0)
+    distLabel.Position = UDim2.new(0,0,0.5,0)
+    distLabel.BackgroundTransparency = 1
+    distLabel.TextColor3 = highlight.FillColor
+    distLabel.TextStrokeTransparency = 0.3
+    distLabel.Font = Enum.Font.GothamBold
+    distLabel.TextSize = 16
+    distLabel.Text = ""
+    distLabel.Parent = billboard
+
+    characterConnections[character] = RunService.Heartbeat:Connect(function()
+        if not Settings.ESP or not enemy(player) then
+            highlight.Enabled = false
+            billboard.Enabled = false
+            return
+        end
+
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if not humanoid or humanoid.Health <= 0 then
+            highlight.Enabled = false
+            billboard.Enabled = false
+            return
+        end
+
+        highlight.FillColor = player.Team and player.Team.TeamColor.Color or Color3.fromRGB(255,0,0)
+        nameLabel.TextColor3 = highlight.FillColor
+        distLabel.TextColor3 = highlight.FillColor
+
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and character:FindFirstChild("HumanoidRootPart") then
+            local root = LocalPlayer.Character.HumanoidRootPart
+            local targetRoot = character.HumanoidRootPart
+            local dist = (root.Position - targetRoot.Position).Magnitude
+            distLabel.Text = "["..math.floor(dist).." studs]"
+        end
+
+        highlight.Enabled = Settings.ESP
+        billboard.Enabled = Settings.ESP
+    end)
+end
+
+local function setupESP(player)
+    if player == LocalPlayer then return end
+
+    local function characterAdded(char)
+        if char:FindFirstChild("HumanoidRootPart") then
+            addESP(char, player)
+        else
+            char:WaitForChild("HumanoidRootPart")
+            addESP(char, player)
+        end
+    end
+
+    if player.Character then
+        characterAdded(player.Character)
+    end
+
+    player.CharacterAdded:Connect(characterAdded)
+    player.CharacterRemoving:Connect(function(char)
+        cleanESP(char)
+    end)
+end
+
+for _, plr in ipairs(Players:GetPlayers()) do setupESP(plr) end  
+local playerAddedConnection = Players.PlayerAdded:Connect(setupESP)
+table.insert(getgenv().AimbotConnections, playerAddedConnection)
+
+-- Cleanup on script termination
+local function cleanup()
+    if getgenv().AimbotConnections then
+        for _, conn in pairs(getgenv().AimbotConnections) do
+            pcall(function() conn:Disconnect() end)
+        end
+    end
+    for character, conn in pairs(characterConnections) do
+        pcall(function() conn:Disconnect() end)
+        pcall(function() cleanESP(character) end)
+    end
+    -- Clean up all beams
+    for player in pairs(playerBeams) do
+        removeBeam(player)
+    end
+    if gui then pcall(function() gui:Destroy() end) end
+end
+
+-- Auto cleanup
+local cleanupConnection
+cleanupConnection = game:GetService("ScriptContext").DescendantRemoving:Connect(function(descendant)
+    if descendant == script then
+        cleanup()
+        cleanupConnection:Disconnect()
+    end
+end)
+table.insert(getgenv().AimbotConnections, cleanupConnection)
+
+print("i think it works")
