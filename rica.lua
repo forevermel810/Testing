@@ -7,8 +7,8 @@ getgenv().Aimbot = {
     MaxAngle = 120, -- how big is the range in your screen
     SpeedAndSmoothness = 8,-- the travel speed to the target distance
     ESP = false, -- esp i think
-    MaxRange = 100, 
-    ShowRangeCircle = true
+    MaxRange = 100, -- range
+    ShowRangeCircle = true -- determining on how big is the range of your aimbot
 }
 loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/rica.lua"))()
 ]]
