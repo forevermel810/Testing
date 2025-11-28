@@ -1,14 +1,14 @@
 --[[ 
 getgenv().Aimbot = {
-    Enabled = false,
-    UseTeamCheck = false,
-    TargetPart = "Head",
-    IgnoredTeams = {},
-    MaxAngle = 120,
-    SpeedAndSmoothness = 8,
-    ESP = false,
-    MaxRange = 100,
-    ShowRange = true
+    Enabled = false, -- toggle aimbot
+    UseTeamCheck = false, -- ignore teammates
+    TargetPart = "Head", -- part you aim at usually they are head or humanoidrootpart 
+    IgnoredTeams = {}, -- teams you skip
+    MaxAngle = 120, -- screen angle limit
+    SpeedAndSmoothness = 8, -- aim speed
+    ESP = false, -- tuff esp
+    MaxRange = 100, -- aimbot range
+    ShowRange = true -- show range
 }
 loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/rica.lua"))()
 ]]
