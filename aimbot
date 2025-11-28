@@ -10,7 +10,6 @@ getgenv().Aimbot = {
     MaxRange = 100, -- aimbot range  
     ShowRange = true -- show range  
 }  
-loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/aimbot"))()  
 ]]  
 
 local Settings = getgenv().Aimbot  
@@ -23,10 +22,9 @@ local Workspace = game:GetService("Workspace")
 local UIS = game:GetService("UserInputService")  
 
 -- Cache and optimization
-local playerCharacters = {}
 local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-local lastTargetTime = 0
+local lastTargetCheck = 0
 local targetRefreshRate = 0.1
 
 local function enemy(player)  
@@ -49,7 +47,6 @@ local function visible(part, character)
 end  
 
 local currentTarget = nil
-local lastTargetCheck = 0
 
 local function getTarget()  
     local now = tick()
@@ -108,8 +105,8 @@ local function smoothAim(dt)
     
     if Settings.Enabled and target then
         local direction = (target.Position - current.Position)
-        local goal = current + direction * math.min(Settings.SpeedAndSmoothness * dt, 0.3)
-        smoothCFrame = goal
+        local goal = CFrame.lookAt(current.Position, current.Position + direction)
+        smoothCFrame = current:Lerp(goal, math.min(Settings.SpeedAndSmoothness * dt, 0.3))
     else
         smoothCFrame = current
     end
@@ -188,7 +185,6 @@ end)
 table.insert(getgenv().AimbotConnections, dragConnection)
 
 -- ESP System with proper cleanup
-local ESPConnections = {}
 local characterConnections = {}
 
 local function cleanESP(character)
@@ -202,35 +198,6 @@ local function cleanESP(character)
     if character:FindFirstChild("ESP_Billboard") then 
         character.ESP_Billboard:Destroy() 
     end
-end
-
-local function updateESP(character, player, highlight, billboard, nameLabel, distLabel)
-    if not Settings.ESP or not enemy(player) then
-        highlight.Enabled = false
-        billboard.Enabled = false
-        return
-    end
-
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    if not humanoid or humanoid.Health <= 0 then
-        highlight.Enabled = false
-        billboard.Enabled = false
-        return
-    end
-
-    highlight.FillColor = player.Team and player.Team.TeamColor.Color or Color3.fromRGB(255,0,0)
-    nameLabel.TextColor3 = highlight.FillColor
-    distLabel.TextColor3 = highlight.FillColor
-
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and character:FindFirstChild("HumanoidRootPart") then
-        local root = LocalPlayer.Character.HumanoidRootPart
-        local targetRoot = character.HumanoidRootPart
-        local dist = (root.Position - targetRoot.Position).Magnitude
-        distLabel.Text = "["..math.floor(dist).." studs]"
-    end
-
-    highlight.Enabled = Settings.ESP
-    billboard.Enabled = Settings.ESP
 end
 
 local function addESP(character, player)
@@ -282,7 +249,32 @@ local function addESP(character, player)
     distLabel.Parent = billboard
 
     characterConnections[character] = RunService.Heartbeat:Connect(function()
-        updateESP(character, player, highlight, billboard, nameLabel, distLabel)
+        if not Settings.ESP or not enemy(player) then
+            highlight.Enabled = false
+            billboard.Enabled = false
+            return
+        end
+
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if not humanoid or humanoid.Health <= 0 then
+            highlight.Enabled = false
+            billboard.Enabled = false
+            return
+        end
+
+        highlight.FillColor = player.Team and player.Team.TeamColor.Color or Color3.fromRGB(255,0,0)
+        nameLabel.TextColor3 = highlight.FillColor
+        distLabel.TextColor3 = highlight.FillColor
+
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and character:FindFirstChild("HumanoidRootPart") then
+            local root = LocalPlayer.Character.HumanoidRootPart
+            local targetRoot = character.HumanoidRootPart
+            local dist = (root.Position - targetRoot.Position).Magnitude
+            distLabel.Text = "["..math.floor(dist).." studs]"
+        end
+
+        highlight.Enabled = Settings.ESP
+        billboard.Enabled = Settings.ESP
     end)
 end
 
@@ -290,13 +282,12 @@ local function setupESP(player)
     if player == LocalPlayer then return end
     
     local function characterAdded(char)
-        char:WaitForChild("HumanoidRootPart")
-        addESP(char, player)
-        
-        local humanoid = char:WaitForChildOfClass("Humanoid")
-        humanoid.Died:Connect(function()
-            cleanESP(char)
-        end)
+        if char:FindFirstChild("HumanoidRootPart") then
+            addESP(char, player)
+        else
+            char:WaitForChild("HumanoidRootPart")
+            addESP(char, player)
+        end
     end
     
     if player.Character then
@@ -304,24 +295,30 @@ local function setupESP(player)
     end
     
     player.CharacterAdded:Connect(characterAdded)
-    player.CharacterRemoving:Connect(cleanESP)
+    player.CharacterRemoving:Connect(function(char)
+        cleanESP(char)
+    end)
 end
 
 for _, plr in ipairs(Players:GetPlayers()) do setupESP(plr) end  
 local playerAddedConnection = Players.PlayerAdded:Connect(setupESP)
 table.insert(getgenv().AimbotConnections, playerAddedConnection)
 
--- Range visualization
+-- Range visualization - FIXED SPHERE
 local rangePart
-local function updateRangeSphere()
+local rangeConnection = RunService.Heartbeat:Connect(function()
     if not Settings.ShowRange then
-        if rangePart then rangePart.Visible = false end
+        if rangePart then 
+            rangePart.Visible = false 
+        end
         return
     end
 
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then 
-        if rangePart then rangePart.Visible = false end
+        if rangePart then 
+            rangePart.Visible = false 
+        end
         return 
     end
 
@@ -333,35 +330,46 @@ local function updateRangeSphere()
         rangePart.Color = Color3.fromRGB(150,150,255)
         rangePart.CanCollide = false
         rangePart.Anchored = true
-        rangePart.Transparency = 0.7
+        rangePart.CastShadow = false
+        rangePart.Transparency = 0.8
         rangePart.Parent = workspace
+        
+        -- Make it wireframe style
+        local mesh = Instance.new("SpecialMesh")
+        mesh.MeshType = Enum.MeshType.Sphere
+        mesh.Parent = rangePart
     end
 
     local hrp = char.HumanoidRootPart
     rangePart.Size = Vector3.new(Settings.MaxRange * 2, Settings.MaxRange * 2, Settings.MaxRange * 2)
-    rangePart.Position = hrp.Position
+    rangePart.CFrame = CFrame.new(hrp.Position)
     rangePart.Visible = true
-end
-
-local rangeConnection = RunService.Heartbeat:Connect(updateRangeSphere)
+end)
 table.insert(getgenv().AimbotConnections, rangeConnection)
 
 -- Cleanup on script termination
 local function cleanup()
-    for _, conn in pairs(getgenv().AimbotConnections) do
-        conn:Disconnect()
+    if getgenv().AimbotConnections then
+        for _, conn in pairs(getgenv().AimbotConnections) do
+            pcall(function() conn:Disconnect() end)
+        end
     end
-    for character in pairs(characterConnections) do
-        cleanESP(character)
+    for character, conn in pairs(characterConnections) do
+        pcall(function() conn:Disconnect() end)
+        pcall(function() cleanESP(character) end)
     end
-    if rangePart then rangePart:Destroy() end
-    if gui then gui:Destroy() end
+    if rangePart then pcall(function() rangePart:Destroy() end) end
+    if gui then pcall(function() gui:Destroy() end) end
 end
 
-game:GetService("ScriptContext").DescendantRemoving:Connect(function(descendant)
+-- Auto cleanup
+local cleanupConnection
+cleanupConnection = game:GetService("ScriptContext").DescendantRemoving:Connect(function(descendant)
     if descendant == script then
         cleanup()
+        cleanupConnection:Disconnect()
     end
 end)
+table.insert(getgenv().AimbotConnections, cleanupConnection)
 
 print("i think it works")
