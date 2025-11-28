@@ -1,0 +1,367 @@
+--[[   
+getgenv().Aimbot = {  
+    Enabled = false, -- toggle aimbot  
+    UseTeamCheck = false, -- ignore teammates  
+    TargetPart = "Head", -- part you aim at usually they are head or humanoidrootpart   
+    IgnoredTeams = {}, -- teams you skip  
+    MaxAngle = 120, -- screen angle limit  
+    SpeedAndSmoothness = 8, -- aim speed  
+    ESP = false, -- tuff esp  
+    MaxRange = 100, -- aimbot range  
+    ShowRange = true -- show range  
+}  
+loadstring(game:HttpGet("https://raw.githubusercontent.com/forevermel810/Testing/main/rica.lua"))()  
+]]  
+
+local Settings = getgenv().Aimbot  
+
+local Players = game:GetService("Players")  
+local LocalPlayer = Players.LocalPlayer  
+local Camera = workspace.CurrentCamera  
+local RunService = game:GetService("RunService")  
+local Workspace = game:GetService("Workspace")  
+local UIS = game:GetService("UserInputService")  
+
+-- Cache and optimization
+local playerCharacters = {}
+local rayParams = RaycastParams.new()
+rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+local lastTargetTime = 0
+local targetRefreshRate = 0.1
+
+local function enemy(player)  
+    if not Settings.UseTeamCheck then return true end  
+    if not player.Team then return true end  
+    if player.Team == LocalPlayer.Team then return false end  
+    for _, name in ipairs(Settings.IgnoredTeams) do  
+        if player.Team.Name == name then return false end  
+    end  
+    return true  
+end  
+
+local function visible(part, character)  
+    if not (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head")) then return false end  
+    local origin = LocalPlayer.Character.Head.Position  
+    local dir = (part.Position - origin).Unit * Settings.MaxRange
+    rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
+    local raycastResult = Workspace:Raycast(origin, dir, rayParams)
+    return raycastResult and raycastResult.Instance:IsDescendantOf(character)
+end  
+
+local currentTarget = nil
+local lastTargetCheck = 0
+
+local function getTarget()  
+    local now = tick()
+    if now - lastTargetCheck < targetRefreshRate then return currentTarget end
+    lastTargetCheck = now
+    
+    if not LocalPlayer.Character then 
+        currentTarget = nil
+        return 
+    end  
+    local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")  
+    if not hrp then 
+        currentTarget = nil
+        return 
+    end  
+
+    local best, bestDot = nil, -1  
+    local maxDot = math.cos(math.rad(Settings.MaxAngle))  
+
+    for _, plr in pairs(Players:GetPlayers()) do  
+        if plr ~= LocalPlayer and plr.Character then  
+            local character = plr.Character
+            local hum = character:FindFirstChildOfClass("Humanoid")  
+            local part = character:FindFirstChild(Settings.TargetPart)  
+            if hum and hum.Health > 0 and part and enemy(plr) and visible(part, character) then  
+                local dist = (part.Position - hrp.Position).Magnitude  
+                if dist <= Settings.MaxRange then  
+                    local dir = (part.Position - hrp.Position).Unit  
+                    local dot = dir:Dot(Camera.CFrame.LookVector)  
+                    if dot > bestDot and dot >= maxDot then  
+                        bestDot = dot  
+                        best = part  
+                    end  
+                end  
+            end  
+        end  
+    end  
+    currentTarget = best
+    return best  
+end  
+
+-- Clean up old connections
+if getgenv().AimbotConnections then
+    for _, conn in pairs(getgenv().AimbotConnections) do
+        conn:Disconnect()
+    end
+end
+
+getgenv().AimbotConnections = {}
+
+-- Smooth aiming with better math
+local smoothCFrame = Camera.CFrame
+local function smoothAim(dt)
+    local target = getTarget()
+    local current = Camera.CFrame
+    
+    if Settings.Enabled and target then
+        local direction = (target.Position - current.Position)
+        local goal = current + direction * math.min(Settings.SpeedAndSmoothness * dt, 0.3)
+        smoothCFrame = goal
+    else
+        smoothCFrame = current
+    end
+    Camera.CFrame = smoothCFrame
+end
+
+local aimbotConnection = RunService.Heartbeat:Connect(smoothAim)
+table.insert(getgenv().AimbotConnections, aimbotConnection)
+
+-- UI Setup
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")  
+if PlayerGui:FindFirstChild("AimbotUI") then PlayerGui.AimbotUI:Destroy() end  
+
+local gui = Instance.new("ScreenGui")  
+gui.Name = "AimbotUI"  
+gui.ResetOnSpawn = false  
+gui.Parent = PlayerGui
+
+local toggle = Instance.new("TextButton")  
+toggle.Size = UDim2.new(0,180,0,60)  
+toggle.Position = UDim2.new(1,-200,0,100)  
+toggle.Text = "AIMBOT: OFF"  
+toggle.Font = Enum.Font.SourceSansLight  
+toggle.TextSize = 22  
+toggle.BackgroundColor3 = Color3.fromRGB(35,35,35)  
+toggle.TextColor3 = Color3.fromRGB(200,200,200)  
+toggle.Parent = gui
+
+local corner = Instance.new("UICorner")  
+corner.CornerRadius = UDim.new(0,24)  
+corner.Parent = toggle
+
+-- UI Interactions
+toggle.MouseEnter:Connect(function() toggle.BackgroundColor3 = Color3.fromRGB(55,55,55) end)  
+toggle.MouseLeave:Connect(function() toggle.BackgroundColor3 = Color3.fromRGB(35,35,35) end)  
+toggle.MouseButton1Click:Connect(function()  
+    Settings.Enabled = not Settings.Enabled  
+    toggle.Text = "AIMBOT: "..(Settings.Enabled and "ON" or "OFF")  
+end)  
+
+local dragging = false  
+local offset = Vector2.new()  
+local drag = Instance.new("Frame")  
+drag.Size = UDim2.new(1,0,0,30)  
+drag.BackgroundTransparency = 1  
+drag.Parent = toggle
+
+local function updateUIPosition(mousePos)
+    local newPos = mousePos - offset
+    local viewportSize = Camera.ViewportSize
+    newPos = Vector2.new(
+        math.clamp(newPos.X, 0, viewportSize.X - toggle.AbsoluteSize.X),
+        math.clamp(newPos.Y, 0, viewportSize.Y - toggle.AbsoluteSize.Y)
+    )
+    toggle.Position = UDim2.new(0, newPos.X, 0, newPos.Y)
+end
+
+drag.InputBegan:Connect(function(input)  
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then  
+        dragging = true  
+        offset = UIS:GetMouseLocation() - toggle.AbsolutePosition  
+    end  
+end)  
+
+drag.InputEnded:Connect(function(input)  
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then  
+        dragging = false  
+    end  
+end)  
+
+local dragConnection = UIS.InputChanged:Connect(function(input)  
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then  
+        updateUIPosition(input.Position)  
+    end  
+end)  
+table.insert(getgenv().AimbotConnections, dragConnection)
+
+-- ESP System with proper cleanup
+local ESPConnections = {}
+local characterConnections = {}
+
+local function cleanESP(character)
+    if characterConnections[character] then
+        characterConnections[character]:Disconnect()
+        characterConnections[character] = nil
+    end
+    if character:FindFirstChild("ESP_Highlight") then 
+        character.ESP_Highlight:Destroy() 
+    end
+    if character:FindFirstChild("ESP_Billboard") then 
+        character.ESP_Billboard:Destroy() 
+    end
+end
+
+local function updateESP(character, player, highlight, billboard, nameLabel, distLabel)
+    if not Settings.ESP or not enemy(player) then
+        highlight.Enabled = false
+        billboard.Enabled = false
+        return
+    end
+
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid or humanoid.Health <= 0 then
+        highlight.Enabled = false
+        billboard.Enabled = false
+        return
+    end
+
+    highlight.FillColor = player.Team and player.Team.TeamColor.Color or Color3.fromRGB(255,0,0)
+    nameLabel.TextColor3 = highlight.FillColor
+    distLabel.TextColor3 = highlight.FillColor
+
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and character:FindFirstChild("HumanoidRootPart") then
+        local root = LocalPlayer.Character.HumanoidRootPart
+        local targetRoot = character.HumanoidRootPart
+        local dist = (root.Position - targetRoot.Position).Magnitude
+        distLabel.Text = "["..math.floor(dist).." studs]"
+    end
+
+    highlight.Enabled = Settings.ESP
+    billboard.Enabled = Settings.ESP
+end
+
+local function addESP(character, player)
+    cleanESP(character)
+    
+    local head = character:FindFirstChild("Head")
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not head or not humanoid then return end
+
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "ESP_Highlight"
+    highlight.FillColor = player.Team and player.Team.TeamColor.Color or Color3.fromRGB(255,0,0)
+    highlight.OutlineColor = Color3.fromRGB(255,255,255)
+    highlight.FillTransparency = 0.5
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Adornee = character
+    highlight.Enabled = Settings.ESP
+    highlight.Parent = character
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "ESP_Billboard"
+    billboard.Size = UDim2.new(0,200,0,50)
+    billboard.StudsOffset = Vector3.new(0,3,0)
+    billboard.AlwaysOnTop = true
+    billboard.Adornee = head
+    billboard.Enabled = Settings.ESP
+    billboard.Parent = character
+
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(1,0,0.5,0)
+    nameLabel.Position = UDim2.new(0,0,0,0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.TextColor3 = highlight.FillColor
+    nameLabel.TextStrokeTransparency = 0.5
+    nameLabel.Font = Enum.Font.SourceSansLight
+    nameLabel.TextSize = 14
+    nameLabel.Text = player.Name
+    nameLabel.Parent = billboard
+
+    local distLabel = Instance.new("TextLabel")
+    distLabel.Size = UDim2.new(1,0,0.5,0)
+    distLabel.Position = UDim2.new(0,0,0.5,0)
+    distLabel.BackgroundTransparency = 1
+    distLabel.TextColor3 = highlight.FillColor
+    distLabel.TextStrokeTransparency = 0.3
+    distLabel.Font = Enum.Font.GothamBold
+    distLabel.TextSize = 16
+    distLabel.Text = ""
+    distLabel.Parent = billboard
+
+    characterConnections[character] = RunService.Heartbeat:Connect(function()
+        updateESP(character, player, highlight, billboard, nameLabel, distLabel)
+    end)
+end
+
+local function setupESP(player)
+    if player == LocalPlayer then return end
+    
+    local function characterAdded(char)
+        char:WaitForChild("HumanoidRootPart")
+        addESP(char, player)
+        
+        local humanoid = char:WaitForChildOfClass("Humanoid")
+        humanoid.Died:Connect(function()
+            cleanESP(char)
+        end)
+    end
+    
+    if player.Character then
+        characterAdded(player.Character)
+    end
+    
+    player.CharacterAdded:Connect(characterAdded)
+    player.CharacterRemoving:Connect(cleanESP)
+end
+
+for _, plr in ipairs(Players:GetPlayers()) do setupESP(plr) end  
+local playerAddedConnection = Players.PlayerAdded:Connect(setupESP)
+table.insert(getgenv().AimbotConnections, playerAddedConnection)
+
+-- Range visualization
+local rangePart
+local function updateRangeSphere()
+    if not Settings.ShowRange then
+        if rangePart then rangePart.Visible = false end
+        return
+    end
+
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then 
+        if rangePart then rangePart.Visible = false end
+        return 
+    end
+
+    if not rangePart then
+        rangePart = Instance.new("Part")
+        rangePart.Name = "AimbotRangeSphere"
+        rangePart.Shape = Enum.PartType.Ball
+        rangePart.Material = Enum.Material.Neon
+        rangePart.Color = Color3.fromRGB(150,150,255)
+        rangePart.CanCollide = false
+        rangePart.Anchored = true
+        rangePart.Transparency = 0.7
+        rangePart.Parent = workspace
+    end
+
+    local hrp = char.HumanoidRootPart
+    rangePart.Size = Vector3.new(Settings.MaxRange * 2, Settings.MaxRange * 2, Settings.MaxRange * 2)
+    rangePart.Position = hrp.Position
+    rangePart.Visible = true
+end
+
+local rangeConnection = RunService.Heartbeat:Connect(updateRangeSphere)
+table.insert(getgenv().AimbotConnections, rangeConnection)
+
+-- Cleanup on script termination
+local function cleanup()
+    for _, conn in pairs(getgenv().AimbotConnections) do
+        conn:Disconnect()
+    end
+    for character in pairs(characterConnections) do
+        cleanESP(character)
+    end
+    if rangePart then rangePart:Destroy() end
+    if gui then gui:Destroy() end
+end
+
+game:GetService("ScriptContext").DescendantRemoving:Connect(function(descendant)
+    if descendant == script then
+        cleanup()
+    end
+end)
+
+print("i think it works")
