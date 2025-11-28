@@ -203,23 +203,46 @@ getgenv().TracerConnection = RunService.Heartbeat:Connect(function()
                 for _, v in pairs(tracer) do v.Visible = false end
                 continue
             end
-            local ignoreTeam = false
-            for _, t in ipairs(Settings.IgnoredTeams) do
-                if p.Team and p.Team.Name == t then
-                    ignoreTeam = true
-                    break
+            
+            -- Team check logic for ESP
+            local shouldShowESP = true
+            local color = Color3.fromRGB(255, 0, 0) -- Default enemy color
+
+            if Settings.UseTeamCheck then
+                local isSameTeam = p.Team and LocalPlayer.Team and p.Team == LocalPlayer.Team
+                local isIgnoredTeam = false
+                for _, t in ipairs(Settings.IgnoredTeams) do
+                    if p.Team and p.Team.Name == t then
+                        isIgnoredTeam = true
+                        break
+                    end
+                end
+                
+                -- Hide ESP for teammates when team check is enabled
+                if isSameTeam or isIgnoredTeam then
+                    shouldShowESP = false
+                end
+            else
+                -- When team check is disabled, show ESP for everyone but color them differently
+                local isSameTeam = p.Team and LocalPlayer.Team and p.Team == LocalPlayer.Team
+                local isIgnoredTeam = false
+                for _, t in ipairs(Settings.IgnoredTeams) do
+                    if p.Team and p.Team.Name == t then
+                        isIgnoredTeam = true
+                        break
+                    end
+                end
+                
+                if isSameTeam then
+                    color = Color3.fromRGB(0, 140, 255) -- Blue for teammates
+                elseif isIgnoredTeam then
+                    color = Color3.fromRGB(255, 255, 255) -- White for ignored teams
+                else
+                    color = Color3.fromRGB(255, 0, 0) -- Red for enemies
                 end
             end
-            local isSameTeam = p.Team and LocalPlayer.Team and p.Team == LocalPlayer.Team
-            local color
-            if ignoreTeam then
-                color = Color3.fromRGB(255,255,255)
-            elseif isSameTeam then
-                color = Color3.fromRGB(0,140,255)
-            else
-                color = Color3.fromRGB(255,0,0)
-            end
-            if not root or (root.Position - localRoot.Position).Magnitude > Settings.MaxRange then
+            
+            if not root or (root.Position - localRoot.Position).Magnitude > Settings.MaxRange or not shouldShowESP then
                 for _, v in pairs(tracer) do v.Visible = false end
                 continue
             end
